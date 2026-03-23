@@ -31,4 +31,5 @@ Tabele: (dodawaj w miarę tworzenia)
 
 ## Aktualny status
 Etap 0 ukończony — projekt działa lokalnie, kod na GitHub.
-Następny krok: Etap 1 — schemat bazy danych w Supabase.
+Etap 1 ukończony — wszystkie tabele w Supabase z RLS, lib/supabase.ts, lib/types.ts, lib/claude.ts gotowe.
+Następny krok: Etap 2 — dashboard główny app/dashboard/page.tsx
