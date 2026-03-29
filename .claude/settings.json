@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/crypt/AppData/Local/Temp/claude/c--Users-crypt-77stf-system/95559bfc-70f5-4737-8398-cea13f2fb880/tasks/**)"
+    ]
+  }
+}

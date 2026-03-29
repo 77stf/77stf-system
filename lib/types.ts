@@ -117,3 +117,107 @@ export interface Referral {
   reward_value?: number
   created_at: string
 }
+
+export interface ClientNote {
+  id: string
+  client_id: string
+  content: string
+  source: 'manual' | 'meeting' | 'instagram' | 'research' | 'call' | 'linkedin'
+  source_url?: string
+  tags?: string[]
+  importance: 'high' | 'medium' | 'low'
+  created_at: string
+  created_by?: string
+}
+
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type TaskPriority = 'low' | 'medium' | 'high'
+export type QuoteItemCategory = 'setup' | 'monthly' | 'onetime'
+
+export interface QuoteItem {
+  id: string
+  quote_id: string
+  name: string
+  description?: string
+  category: QuoteItemCategory
+  price: number
+  quantity: number
+  sort_order: number
+  created_at: string
+}
+
+export interface Quote {
+  id: string
+  client_id: string
+  title: string
+  status: QuoteStatus
+  valid_until?: string
+  setup_fee: number
+  monthly_fee: number
+  discount_pct: number
+  notes?: string
+  sent_at?: string
+  accepted_at?: string
+  created_at: string
+  updated_at: string
+  // joined
+  client?: Pick<Client, 'id' | 'name' | 'industry' | 'status'>
+  items?: QuoteItem[]
+}
+
+export interface Task {
+  id: string
+  client_id?: string
+  title: string
+  description?: string
+  status: TaskStatus
+  priority: TaskPriority
+  due_date?: string
+  done_at?: string
+  created_at: string
+  updated_at: string
+  // joined
+  client?: Pick<Client, 'id' | 'name'>
+}
+
+// ─── Audit types ──────────────────────────────────────────────────────────────
+
+export type AuditStatus = 'in_progress' | 'analyzing' | 'completed'
+export type AuditCategoryId = 'procesy' | 'technologia' | 'sprzedaz' | 'obsluga' | 'dane'
+export type AuditSeverity = 'high' | 'medium' | 'low'
+
+export interface AuditFinding {
+  category: AuditCategoryId
+  finding: string
+  severity: AuditSeverity
+  recommendation: string
+}
+
+export interface AuditQuoteItem {
+  name: string
+  description: string
+  category: QuoteItemCategory
+  price: number
+  priority: number          // 1 (highest) to 5 (lowest)
+}
+
+export interface Audit {
+  id: string
+  client_id: string
+  title: string
+  status: AuditStatus
+  score?: number            // 0-100 overall
+  answers: Record<string, string>            // { question_id: answer }
+  ai_scores?: Partial<Record<AuditCategoryId, number>>  // 0-100 per category
+  findings?: AuditFinding[]
+  recommendations?: AuditQuoteItem[]        // kept for compat
+  ai_summary?: string
+  ai_brief?: string
+  quote_id?: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  // joined
+  client?: Pick<Client, 'id' | 'name' | 'industry' | 'status'>
+}

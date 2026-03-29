@@ -1,3 +1,5 @@
+// TODO: Wire this to meeting analysis when Fireflies webhook is implemented (Etap ?)
+// Currently unused — meeting-prep/route.ts calls Anthropic SDK directly
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({
