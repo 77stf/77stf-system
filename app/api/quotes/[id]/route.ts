@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Wycena nie istnieje' }, { status: 404 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Wewnętrzny błąd serwera' }, { status: 500 })
     }
 
     return NextResponse.json({ quote: data })
@@ -260,7 +260,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
         metadata: { quote_id: id },
       })
 
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Wewnętrzny błąd serwera' }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })

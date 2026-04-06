@@ -19,10 +19,10 @@ export default function ProjectsPage() {
       }}>
         <FolderKanban style={{ width: 36, height: 36, color: t.text.muted, margin: '0 auto 14px' }} />
         <div style={{ fontSize: 14, fontWeight: 600, color: t.text.secondary, marginBottom: 6 }}>
-          W budowie — Etap 6
+          Zaplanowane
         </div>
         <div style={{ fontSize: 13, color: t.text.muted }}>
-          Globalna lista projektów per klient z pipeline view.
+          Globalna lista projektów per klient z pipeline view. Na razie — śledź wdrożenia w Stack Intelligence.
         </div>
       </div>
     </div>

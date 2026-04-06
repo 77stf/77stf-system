@@ -17,9 +17,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: 'Wewnętrzny błąd serwera' }, { status: 500 })
 
   return NextResponse.json({ errors: data ?? [] })
 }
@@ -30,12 +28,18 @@ export async function DELETE(_req: NextRequest) {
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
 
+  // Admin-only: check against env allowlist
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean)
+  if (adminEmails.length > 0 && !adminEmails.includes(user.email ?? '')) {
+    return NextResponse.json({ error: 'Tylko administrator może wyczyścić logi' }, { status: 403 })
+  }
+
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase
     .from('error_log')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000') // delete all
+    .neq('id', '00000000-0000-0000-0000-000000000000')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Wewnętrzny błąd serwera' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

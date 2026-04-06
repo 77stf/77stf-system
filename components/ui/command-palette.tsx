@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, LayoutDashboard, Users, FolderKanban,
   FileText, Shield, Settings, ArrowRight, Building2,
@@ -114,31 +113,24 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   useEffect(() => { setSelected(0) }, [query])
 
+  if (!open) return null
+
   return (
-    <AnimatePresence>
-      {open && (
-        <>
+    <>
           {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+          <div
             onClick={onClose}
             style={{
               position: 'fixed', inset: 0,
               backgroundColor: 'rgba(0,0,0,0.60)',
               backdropFilter: 'blur(6px)',
               zIndex: 9998,
+              animation: 'cpFadeIn 0.15s ease',
             }}
           />
 
           {/* Panel */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -8 }}
-            transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+          <div
             style={{
               position: 'fixed',
               top: '18%',
@@ -152,6 +144,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               boxShadow: '0 24px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.07)',
               overflow: 'hidden',
               zIndex: 9999,
+              animation: 'cpSlideIn 0.18s cubic-bezier(0.25,0.46,0.45,0.94)',
             }}
           >
             {/* Search input */}
@@ -274,12 +267,12 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 </div>
               ))}
             </div>
-          </motion.div>
-        </>
-      )}
-      <style>{`
-        @keyframes cp-spin { to { transform: rotate(360deg); } }
-      `}</style>
-    </AnimatePresence>
+          </div>
+    <style>{`
+      @keyframes cpFadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes cpSlideIn { from { opacity: 0; transform: translateX(-50%) scale(0.96) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); } }
+      @keyframes cp-spin { to { transform: rotate(360deg); } }
+    `}</style>
+    </>
   )
 }

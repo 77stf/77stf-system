@@ -41,4 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 # seed/utility scripts (may contain env references)
-scripts/
+scripts/dev/
+scripts/test-data/
+# telegram session files — NEVER commit
+*.session
+scripts/telegram-forwarder/.env
+
+.vercel

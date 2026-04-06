@@ -4,24 +4,65 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useEffect, useState } from 'react'
 import {
-  LayoutDashboard, Users, FolderKanban, FileText,
-  Shield, Settings, LogOut, Receipt, CheckSquare, ClipboardCheck, AlertTriangle,
+  LayoutDashboard, Users, Receipt, CheckSquare, ClipboardCheck,
+  Shield, Settings, LogOut, Bot, AlertTriangle, Terminal, Map,
+  Rss, Brain, TrendingUp, MessageSquare, Zap, Send,
 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { t } from '@/lib/tokens'
 
-const NAV_ITEMS = [
-  { href: '/dashboard',           label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/dashboard/clients',   label: 'Klienci',      icon: Users },
-  { href: '/dashboard/quotes',    label: 'Wyceny',       icon: Receipt },
-  { href: '/dashboard/tasks',     label: 'Zadania',      icon: CheckSquare },
-  { href: '/dashboard/audits',    label: 'Audyty',       icon: ClipboardCheck },
-  { href: '/dashboard/errors',    label: 'Logi błędów',  icon: AlertTriangle },
-  { href: '/dashboard/projects',  label: 'Projekty',     icon: FolderKanban },
-  { href: '/dashboard/documents', label: 'Dokumenty',    icon: FileText },
-  { href: '/dashboard/guardian',  label: 'Guardian',     icon: Shield },
-  { href: '/dashboard/settings',  label: 'Ustawienia',   icon: Settings },
+// ─── Nav structure ────────────────────────────────────────────────────────────
+
+interface NavItem {
+  href: string
+  label: string
+  icon: React.ElementType
+  badge?: string
+  planned?: boolean
+}
+
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'Główne',
+    items: [
+      { href: '/dashboard',              label: 'Dashboard',       icon: LayoutDashboard },
+      { href: '/dashboard/clients',      label: 'Klienci',         icon: Users },
+      { href: '/dashboard/tasks',        label: 'Zadania',         icon: CheckSquare },
+      { href: '/dashboard/quotes',       label: 'Wyceny',          icon: Receipt },
+      { href: '/dashboard/audits',       label: 'Audyty',          icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: 'Agenci AI',
+    items: [
+      { href: '/dashboard/operator',     label: 'Operator',        icon: Terminal,     badge: 'AI' },
+      { href: '/dashboard/guardian',     label: 'Guardian',        icon: Shield,       badge: 'AI' },
+      { href: '/dashboard/intelligence', label: 'Intelligence Hub', icon: Brain,       badge: 'AI' },
+      { href: '/dashboard/content',      label: 'Content Studio',  icon: Rss,          badge: 'AI' },
+    ],
+  },
+  {
+    label: 'Monitoring',
+    items: [
+      { href: '/dashboard/telegram',     label: 'Telegram',        icon: Send,         badge: 'Live' },
+      { href: '/dashboard/ai-costs',     label: 'Koszty AI',       icon: Bot },
+      { href: '/dashboard/errors',       label: 'Logi błędów',     icon: AlertTriangle },
+      { href: '/dashboard/system-map',   label: 'Mapa systemu',    icon: Map },
+    ],
+  },
+  {
+    label: 'Planowane',
+    items: [
+      { href: '/dashboard/projects',     label: 'Projekty',        icon: TrendingUp,   planned: true },
+      { href: '/dashboard/documents',    label: 'Dokumenty',       icon: Receipt,      planned: true },
+      { href: '#slack',                  label: 'Slack Bot',       icon: MessageSquare, planned: true },
+      { href: '#n8n',                    label: 'n8n Flows',       icon: Zap,          planned: true },
+    ],
+  },
 ]
+
+// Flat list for active index detection
+const ALL_ITEMS = NAV_GROUPS.flatMap(g => g.items)
 
 interface SidebarProps {
   userEmail?: string
@@ -31,20 +72,18 @@ interface SidebarProps {
 export function Sidebar({ userEmail, userName }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-
-  // ── Single-pill approach: one pill animates between items ─────────────────
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([])
   const [pill, setPill] = useState({ top: 0, height: 38 })
 
-  const activeIndex = NAV_ITEMS.findIndex(
-    ({ href }) => pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+  const activeIndex = ALL_ITEMS.findIndex(
+    ({ href }) => href !== '#slack' && href !== '#n8n' && (
+      pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+    )
   )
 
   useEffect(() => {
     const el = itemRefs.current[activeIndex]
-    if (el) {
-      setPill({ top: el.offsetTop, height: el.offsetHeight })
-    }
+    if (el) setPill({ top: el.offsetTop, height: el.offsetHeight })
   }, [activeIndex, pathname])
 
   async function handleSignOut() {
@@ -60,154 +99,151 @@ export function Sidebar({ userEmail, userName }: SidebarProps) {
   const displayName = userName || (userEmail ? userEmail.split('@')[0] : 'Admin')
   const initials = displayName.slice(0, 1).toUpperCase()
 
+  let itemIndex = -1 // running index across all items for refs
+
   return (
     <>
-      {/* ── CSS hover helper ── */}
       <style>{`
         .nav-link { color: ${t.text.secondary}; }
-        .nav-link:hover { color: ${t.text.primary} !important; }
+        .nav-link:hover:not(.planned) { color: ${t.text.primary} !important; background: rgba(255,255,255,0.03); }
         .nav-link.active { color: ${t.text.primary}; }
+        .nav-link.planned { cursor: default; opacity: 0.45; }
+        .nav-link.planned:hover { color: ${t.text.secondary} !important; background: none !important; }
       `}</style>
 
-      <aside
-        style={{
-          position: 'fixed', left: 0, top: 0,
-          height: '100vh', width: 240,
-          display: 'flex', flexDirection: 'column',
-          backgroundColor: '#080811',
-          borderRight: `1px solid ${t.border.subtle}`,
-          zIndex: 40,
-        }}
-      >
-        {/* ── Logo ── */}
-        <div style={{
-          padding: '22px 20px 20px',
-          borderBottom: `1px solid ${t.border.subtle}`,
-          display: 'flex', alignItems: 'center', gap: 11,
-        }}>
+      <aside style={{
+        position: 'fixed', left: 0, top: 0,
+        height: '100vh', width: 224,
+        display: 'flex', flexDirection: 'column',
+        backgroundColor: t.bg.sidebar,
+        borderRight: `1px solid ${t.border.subtle}`,
+        zIndex: 40,
+      }}>
+        {/* Logo */}
+        <div style={{ padding: '20px 18px 18px', borderBottom: `1px solid ${t.border.subtle}`, display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: t.radius.sm,
+            width: 30, height: 30, borderRadius: t.radius.sm,
             background: t.brand.gradient,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '-0.04em',
-            flexShrink: 0, boxShadow: '0 2px 10px rgba(196,154,46,0.35)',
-          }}>
-            77
-          </div>
+            fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '-0.04em',
+            flexShrink: 0, boxShadow: '0 2px 8px rgba(196,154,46,0.32)',
+          }}>77</div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: t.text.primary, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
-              77STF
-            </div>
-            <div style={{ fontSize: 10, color: t.text.muted, textTransform: 'uppercase', letterSpacing: '0.20em', marginTop: 2 }}>
-              Operations
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.text.primary, lineHeight: 1.1, letterSpacing: '-0.02em' }}>77STF</div>
+            <div style={{ fontSize: 9, color: t.text.muted, textTransform: 'uppercase', letterSpacing: '0.20em', marginTop: 2 }}>Operations</div>
           </div>
         </div>
 
-        {/* ── Navigation ── */}
-        <nav style={{ flex: 1, padding: '10px 10px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-          <div style={{
-            fontSize: 10, fontWeight: 500, textTransform: 'uppercase',
-            letterSpacing: '0.18em', color: t.text.muted, padding: '6px 10px 10px',
-          }}>
-            Menu
-          </div>
-
-          {/* Pill container — pill is a sibling of links, not inside them */}
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {/* Pill + accent — positioned relative to whole nav */}
           <div style={{ position: 'relative' }}>
-            {/* Single animated pill — CSS transition, no framer-motion */}
             {activeIndex >= 0 && (
-              <div
-                aria-hidden
-                style={{
+              <>
+                <div aria-hidden style={{
                   position: 'absolute', left: 0, right: 0,
                   borderRadius: t.radius.sm,
-                  backgroundColor: 'rgba(255,255,255,0.065)',
-                  border: '1px solid rgba(255,255,255,0.10)',
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                  top: pill.top,
-                  height: pill.height,
-                  transition: 'top 280ms cubic-bezier(0.4,0,0.2,1), height 280ms cubic-bezier(0.4,0,0.2,1)',
-                }}
-              />
-            )}
-
-            {/* Left accent bar */}
-            {activeIndex >= 0 && (
-              <div
-                aria-hidden
-                style={{
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  pointerEvents: 'none', zIndex: 0,
+                  top: pill.top, height: pill.height,
+                  transition: 'top 260ms cubic-bezier(0.4,0,0.2,1), height 260ms cubic-bezier(0.4,0,0.2,1)',
+                }} />
+                <div aria-hidden style={{
                   position: 'absolute', left: 0, width: 2,
                   borderRadius: '0 2px 2px 0',
-                  backgroundColor: 'rgba(242,242,244,0.55)',
-                  pointerEvents: 'none',
-                  zIndex: 1,
+                  backgroundColor: 'rgba(242,242,244,0.5)',
+                  pointerEvents: 'none', zIndex: 1,
                   top: pill.top + 8,
                   height: Math.max(0, pill.height - 16),
-                  transition: 'top 280ms cubic-bezier(0.4,0,0.2,1), height 280ms cubic-bezier(0.4,0,0.2,1)',
-                }}
-              />
+                  transition: 'top 260ms cubic-bezier(0.4,0,0.2,1), height 260ms cubic-bezier(0.4,0,0.2,1)',
+                }} />
+              </>
             )}
 
-            {/* Nav links */}
-            {NAV_ITEMS.map(({ href, label, icon: Icon }, idx) => {
-              const isActive = activeIndex === idx
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  ref={el => { itemRefs.current[idx] = el }}
-                  className={`nav-link${isActive ? ' active' : ''}`}
-                  style={{
-                    position: 'relative', zIndex: 1,
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 10px 9px 14px',
-                    borderRadius: t.radius.sm,
-                    fontSize: 13.5, fontWeight: isActive ? 500 : 400,
-                    letterSpacing: '-0.01em', textDecoration: 'none',
-                    transition: 'color 120ms',
-                  }}
-                >
-                  <Icon style={{ width: 15, height: 15, flexShrink: 0, opacity: isActive ? 0.82 : 0.38, transition: 'opacity 120ms' }} />
-                  {label}
-                </Link>
-              )
-            })}
+            {NAV_GROUPS.map(group => (
+              <div key={group.label} style={{ marginBottom: 4 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', color: t.text.muted, padding: '10px 10px 5px', opacity: 0.7 }}>
+                  {group.label}
+                </div>
+                {group.items.map(({ href, label, icon: Icon, badge, planned }) => {
+                  itemIndex++
+                  const myIndex = itemIndex
+                  const isActive = activeIndex === myIndex
+                  const isPlanned = planned === true
+
+                  return (
+                    <Link
+                      key={href}
+                      href={isPlanned ? '#' : href}
+                      ref={el => { itemRefs.current[myIndex] = el }}
+                      className={`nav-link${isActive ? ' active' : ''}${isPlanned ? ' planned' : ''}`}
+                      onClick={isPlanned ? (e) => e.preventDefault() : undefined}
+                      style={{
+                        position: 'relative', zIndex: 1,
+                        display: 'flex', alignItems: 'center', gap: 9,
+                        padding: '8px 10px 8px 12px',
+                        borderRadius: t.radius.sm,
+                        fontSize: 13, fontWeight: isActive ? 600 : 400,
+                        letterSpacing: '-0.01em', textDecoration: 'none',
+                        transition: 'color 100ms, background 100ms',
+                      }}
+                    >
+                      <Icon style={{ width: 14, height: 14, flexShrink: 0, opacity: isActive ? 0.9 : isPlanned ? 0.4 : 0.45, transition: 'opacity 100ms' }} />
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                      {badge && !isActive && !isPlanned && (
+                        <span style={{
+                          fontSize: 8, fontWeight: 800, letterSpacing: '0.06em',
+                          color: '#818CF8', background: 'rgba(129,140,248,0.12)',
+                          border: '1px solid rgba(129,140,248,0.22)',
+                          borderRadius: t.radius.full, padding: '1px 5px', flexShrink: 0,
+                        }}>
+                          {badge}
+                        </span>
+                      )}
+                      {isPlanned && (
+                        <span style={{
+                          fontSize: 8, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                          color: t.text.muted, background: t.bg.muted,
+                          border: `1px solid ${t.border.subtle}`,
+                          borderRadius: t.radius.full, padding: '1px 5px', flexShrink: 0,
+                        }}>
+                          wkrótce
+                        </span>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
           </div>
         </nav>
 
-        {/* ── Admin user ── */}
-        <div style={{
-          padding: '14px 14px 16px',
-          borderTop: `1px solid ${t.border.subtle}`,
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
+        {/* User */}
+        <div style={{ padding: '12px 12px 14px', borderTop: `1px solid ${t.border.subtle}`, display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: t.radius.sm,
+            width: 30, height: 30, borderRadius: t.radius.sm,
             background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.11)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 700, color: t.text.secondary, letterSpacing: '-0.02em', flexShrink: 0,
+            fontSize: 11, fontWeight: 700, color: t.text.secondary, flexShrink: 0,
           }}>
             {initials}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 13, fontWeight: 500, color: t.text.primary,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em',
-            }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.text.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName}
             </div>
-            <div style={{ fontSize: 11, color: t.text.muted, display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
+            <div style={{ fontSize: 10, color: t.text.muted, display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: t.semantic.success, display: 'inline-block', flexShrink: 0 }} />
               Online
             </div>
           </div>
           <button
-            onClick={handleSignOut} title="Wyloguj"
-            style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.45, transition: 'opacity 150ms' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.45')}
+            onClick={handleSignOut}
+            title="Wyloguj"
+            style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.4, transition: 'opacity 150ms' }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}
           >
             <LogOut style={{ width: 13, height: 13, color: t.text.muted }} />
           </button>

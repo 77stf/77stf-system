@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase'
-import Anthropic from '@anthropic-ai/sdk'
+import { callClaude } from '@/lib/claude'
 import { getModel } from '@/lib/ai-config'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -16,6 +17,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const { limit, windowMs } = RATE_LIMITS.AI_BRIEF
+  if (!rateLimit(`brief:${user.id}`, limit, windowMs)) {
+    return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj chwilę.' }, { status: 429 })
+  }
+
   const { id } = await params
   const supabase = createSupabaseAdminClient()
 
@@ -26,6 +32,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     { data: meetings },
     { data: projects },
     { data: automations },
+    { data: latestAudit },
   ] = await Promise.all([
     supabase
       .from('clients')
@@ -53,6 +60,14 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       .from('automations')
       .select('name, status, transactions_this_month')
       .eq('client_id', id),
+    supabase
+      .from('audits')
+      .select('score, findings, financial_summary, quote_id, completed_at, title')
+      .eq('client_id', id)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   if (!client) {
@@ -100,6 +115,31 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
           .join('\n')
       : 'Brak automatyzacji.'
 
+  // Build audit section if a completed audit exists
+  let auditSection = ''
+  if (latestAudit) {
+    const auditDate = latestAudit.completed_at
+      ? new Date(latestAudit.completed_at).toLocaleDateString('pl-PL')
+      : 'brak daty'
+    const findings = Array.isArray(latestAudit.findings) ? latestAudit.findings : []
+    const topFindings = findings
+      .slice(0, 3)
+      .map((f: unknown) => (f && typeof f === 'object' && 'finding' in f ? String((f as { finding: unknown }).finding) : String(f)))
+      .filter(Boolean)
+      .join(', ')
+    const financial = latestAudit.financial_summary as Record<string, number> | null
+    const roi = financial?.total_addressable_roi_pln
+      ? `${financial.total_addressable_roi_pln.toLocaleString('pl-PL')} PLN/rok`
+      : null
+    const quoteStatus = latestAudit.quote_id ? 'wycena wysłana' : 'brak wyceny'
+
+    auditSection = `
+## Wyniki Audytu Operacyjnego (${auditDate}):
+Wynik: ${latestAudit.score ?? '—'}/100${topFindings ? ` | Kluczowe problemy: ${topFindings}` : ''}${roi ? ` | Obiecany ROI: ${roi}` : ''}
+Status wyceny: ${quoteStatus}
+`
+  }
+
   const prompt = `Jesteś doświadczonym polskim konsultantem sprzedaży B2B. Piszesz brief przed spotkaniem handlowym.
 Twoje briefy są znane z precyzji, naturalnego języka i konkretnych wskazówek — zero korporacyjnych ogólników.
 
@@ -110,7 +150,7 @@ KONTEKST 77STF — zewnętrzny dział IT dla polskich MŚP (10-50 osób):
 - Guardian Agent — proaktywnie skanuje rynek i proponuje optymalizacje zanim klient zauważy problem
 - Panel klienta z real-time ROI każdej automatyzacji
 
-## DANE O KLIENCIE: ${client.name}
+${auditSection}## DANE O KLIENCIE: ${client.name}
 Branża: ${client.industry ?? 'nieznana'}
 Status CRM: ${client.status}
 Decydent: ${client.owner_name ?? 'nieznany'}
@@ -287,28 +327,19 @@ Odpowiadaj WYŁĄCZNIE JSON. Zero tekstu przed ani po. Zero markdown. Zero backt
   }
 
   try {
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      maxRetries: 0,   // no automatic retries — each failed attempt costs tokens
-      timeout: 90_000, // 90s — Sonnet is slower than Haiku, especially with long prompts
-    })
-
-    const response = await anthropic.messages.create({
+    const { text } = await callClaude({
+      feature: 'meetingBrief',
       model: getModel('meetingBrief'),
-      max_tokens: 4096, // Sonnet is more concise — brief should be ~1500-2000 tokens
-      system:
-        'Jesteś polskim konsultantem sprzedaży B2B. Odpowiadaj WYŁĄCZNIE w JSON — zero tekstu poza JSON, zero markdown, zero backticks. Polskie zdania muszą być gramatycznie poprawne.',
+      system: 'Jesteś polskim konsultantem sprzedaży B2B. Odpowiadaj WYŁĄCZNIE w JSON — zero tekstu poza JSON, zero markdown, zero backticks. Polskie zdania muszą być gramatycznie poprawne.',
       messages: [{ role: 'user', content: prompt }],
+      max_tokens: 8192,
+      client_id: id,
     })
-
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : ''
 
     let brief: unknown
     try {
       brief = JSON.parse(text)
     } catch {
-      // Try to extract JSON from response if wrapped in text
       const match = text.match(/\{[\s\S]*\}/)
       if (match) {
         brief = JSON.parse(match[0])
@@ -323,13 +354,7 @@ Odpowiadaj WYŁĄCZNIE JSON. Zero tekstu przed ani po. Zero markdown. Zero backt
     return NextResponse.json({ brief, client_name: client.name, model: getModel('meetingBrief') })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Nieznany błąd'
-    // Log to error_log so we can diagnose without guessing
-    await supabase.from('error_log').insert({
-      source: 'api/clients/meeting-prep',
-      message,
-      metadata: { client_id: id, model: getModel('meetingBrief') },
-    })
-    // Return structured mock so UI doesn't break — never expose raw error JSON
+    // callClaude() already logged to error_log — return fallback so UI doesn't break
     const fallback = {
       executive_summary: 'Nie udało się wygenerować briefu AI. Sprawdź klucz API.',
       pain_points: ['Dane niedostępne'],

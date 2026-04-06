@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:reactbits.dev)",
+      "Bash(xargs grep:*)",
+      "Bash(ls /c/Users/crypt/77stf-system/app/dashboard/clients/[id]/)",
+      "Bash(grep -r \"#050508\\\\|#07070F\\\\|rgba\\(7,7,15\\)\\\\|rgba\\(5,5,8\\)\\\\|#8B5CF6\" /c/Users/crypt/77stf-system --include=*.tsx --include=*.ts)",
+      "Bash(grep -r \"violet\\\\|purple\\\\|8B5CF6\\\\|#6366F1\\\\|#F59E0B\" /c/Users/crypt/77stf-system --include=*.tsx --include=*.ts --include=*.css)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -rn \"= [^>=!&|?;,\\)}\\\\n]\" /c/Users/crypt/77stf-system/app/ /c/Users/crypt/77stf-system/components/ --include=*.ts --include=*.tsx)",
+      "Bash(mkdir -p \"c:/Users/crypt/77stf-system/.claude/commands\")",
+      "Bash(mkdir -p \"c:/Users/crypt/77stf-system/.claude/rules\")",
+      "Bash(mkdir -p \"c:/Users/crypt/77stf-system/.claude/agents\")",
+      "mcp__claude_ai_Notion__notion-fetch",
+      "mcp__claude_ai_Notion__notion-query-database-view"
+    ]
+  }
+}

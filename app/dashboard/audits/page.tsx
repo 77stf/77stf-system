@@ -72,8 +72,8 @@ export default function AuditsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' as const }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${t.border.default}` }}>
-                {['Klient', 'Tytuł', 'Status', 'Wynik', 'Data', ''].map(h => (
-                  <th key={h} style={{
+                {['Klient', 'Tytuł', 'Status', 'Wynik', 'Data', ''].map((h, hi) => (
+                  <th key={hi} style={{
                     padding: '12px 20px', textAlign: 'left',
                     fontSize: 11, fontWeight: 600, color: t.text.muted,
                     textTransform: 'uppercase' as const, letterSpacing: '0.08em',

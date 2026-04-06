@@ -1,18 +1,19 @@
 'use client'
 
-import { TrendingUp, Users, Target, AlertTriangle, CheckCircle } from 'lucide-react'
+import { TrendingUp, Users, CheckSquare, AlertTriangle, CheckCircle, Bot } from 'lucide-react'
 import { AnimatedCounter } from '@/components/ui/animated-counter'
 import { t } from '@/lib/tokens'
 import { formatPLN } from '@/lib/format'
 
 interface StatsBarProps {
-  revenue: number
+  mrr: number
+  totalSetup: number
   activeClients: number
-  activeLeads: number
-  alertCount: number
+  openTasks: number
+  overdueCount: number
+  aiCostMonth: number
+  aiPct: number
 }
-
-// ─── Sparkline (minimal, subtle) ─────────────────────────────────────────────
 
 function buildPath(data: number[], w: number, h: number) {
   if (data.length < 2) return { line: '', area: '' }
@@ -31,14 +32,14 @@ function buildPath(data: number[], w: number, h: number) {
 }
 
 function Sparkline({ data, color, id }: { data: number[]; color: string; id: string }) {
-  const w = 64, h = 26
+  const w = 56, h = 24
   const { line, area } = buildPath(data, w, h)
   if (!line) return null
   return (
-    <svg width={w} height={h} style={{ display: 'block', flexShrink: 0, opacity: 0.65 }}>
+    <svg width={w} height={h} style={{ display: 'block', flexShrink: 0, opacity: 0.6 }}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={color} stopOpacity={0.20} />
+          <stop offset="0%"   stopColor={color} stopOpacity={0.22} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
@@ -48,132 +49,128 @@ function Sparkline({ data, color, id }: { data: number[]; color: string; id: str
   )
 }
 
-const SP_REVENUE = [18000, 22000, 19500, 28000, 31000, 38000, 42000]
-const SP_CLIENTS = [3, 3, 4, 5, 5, 6, 7]
-const SP_LEADS   = [8, 6, 9, 7, 11, 8, 4]
-
-// ─── Component ───────────────────────────────────────────────────────────────
-
-export function StatsBar({ revenue, activeClients, activeLeads, alertCount }: StatsBarProps) {
-  const hasAlert = alertCount > 0
+export function StatsBar({ mrr, totalSetup, activeClients, openTasks, overdueCount, aiCostMonth, aiPct }: StatsBarProps) {
+  const hasOverdue = overdueCount > 0
+  const aiWarning = aiPct >= 80
 
   const cards = [
     {
-      label:      'Przychód łączny',
-      Icon:       TrendingUp,
-      isRevenue:  true,
-      value:      revenue,
-      sub:        '↑ 12% vs poprzedni miesiąc',
-      subColor:   t.semantic.success,
-      sparkData:  SP_REVENUE,
-      sparkId:    'sp-rev',
+      label:     'MRR',
+      Icon:      TrendingUp,
+      isRevenue: true,
+      value:     mrr,
+      sub:       totalSetup > 0 ? `+${formatPLN(totalSetup)} setup` : 'przychód miesięczny',
+      subColor:  t.semantic.success,
+      sparkData: [mrr * 0.6, mrr * 0.7, mrr * 0.75, mrr * 0.8, mrr * 0.9, mrr * 0.95, mrr],
+      sparkId:   'sp-mrr',
       sparkColor: t.brand.gold,
+      href: '/dashboard/quotes',
     },
     {
-      label:      'Aktywni klienci',
-      Icon:       Users,
-      isRevenue:  false,
-      value:      activeClients,
-      sub:        'aktywnych firm',
-      subColor:   t.text.muted,
-      sparkData:  SP_CLIENTS,
-      sparkId:    'sp-cli',
+      label:     'Aktywni klienci',
+      Icon:      Users,
+      isRevenue: false,
+      value:     activeClients,
+      sub:       'aktywnych + partnerów',
+      subColor:  t.text.muted,
+      sparkData: [Math.max(0, activeClients - 3), activeClients - 2, activeClients - 2, activeClients - 1, activeClients - 1, activeClients, activeClients],
+      sparkId:   'sp-cli',
       sparkColor: 'rgba(242,242,244,0.35)',
+      href: '/dashboard/clients',
     },
     {
-      label:      'Leady w pipeline',
-      Icon:       Target,
-      isRevenue:  false,
-      value:      activeLeads,
-      sub:        'otwarte szanse',
-      subColor:   t.text.muted,
-      sparkData:  SP_LEADS,
-      sparkId:    'sp-lea',
-      sparkColor: 'rgba(242,242,244,0.35)',
+      label:     'Otwarte zadania',
+      Icon:      hasOverdue ? AlertTriangle : CheckSquare,
+      isRevenue: false,
+      value:     openTasks,
+      sub:       hasOverdue ? `${overdueCount} po terminie` : 'wszystkie w terminie',
+      subColor:  hasOverdue ? t.semantic.error : t.semantic.success,
+      sparkData: [openTasks + 3, openTasks + 2, openTasks + 4, openTasks + 1, openTasks + 2, openTasks + 1, openTasks],
+      sparkId:   'sp-tsk',
+      sparkColor: hasOverdue ? t.semantic.error : t.semantic.success,
+      href: '/dashboard/tasks',
     },
     {
-      label:      'Alerty systemu',
-      Icon:       hasAlert ? AlertTriangle : CheckCircle,
-      isRevenue:  false,
-      value:      alertCount,
-      sub:        hasAlert ? 'wymaga uwagi' : 'wszystko sprawne',
-      subColor:   hasAlert ? t.semantic.error : t.semantic.success,
-      sparkData:  [0, 1, 0, 2, 1, 0, alertCount],
-      sparkId:    'sp-ale',
-      sparkColor: hasAlert ? t.semantic.error : t.semantic.success,
+      label:     'Koszty AI (mies.)',
+      Icon:      aiWarning ? AlertTriangle : Bot,
+      isRevenue: false,
+      value:     aiPct,
+      sub:       `$${aiCostMonth.toFixed(2)} wydane`,
+      subColor:  aiWarning ? t.semantic.error : t.text.muted,
+      sparkData: [aiPct * 0.2, aiPct * 0.4, aiPct * 0.5, aiPct * 0.65, aiPct * 0.8, aiPct * 0.9, aiPct],
+      sparkId:   'sp-ai',
+      sparkColor: aiWarning ? t.semantic.error : t.semantic.info,
+      href: '/dashboard/ai-costs',
     },
   ]
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
       {cards.map((card, i) => (
-        <div
+        <a
           key={card.label}
+          href={card.href}
           style={{
             borderRadius: t.radius.lg,
-            padding: '22px 22px 18px',
-            backgroundColor: i === cards.length - 1 && hasAlert
+            padding: '20px 20px 16px',
+            backgroundColor: i === 2 && hasOverdue
               ? t.semantic.errorBg
+              : i === 3 && aiWarning
+              ? t.semantic.warningBg
               : t.bg.card,
-            border: `1px solid ${i === cards.length - 1 && hasAlert ? t.semantic.errorBorder : t.border.default}`,
+            border: `1px solid ${
+              i === 2 && hasOverdue ? t.semantic.errorBorder
+              : i === 3 && aiWarning ? t.semantic.warningBorder
+              : t.border.default}`,
             boxShadow: t.shadow.card,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0,
+            display: 'flex', flexDirection: 'column', gap: 0,
             animation: `cardEnter 0.32s ease-out ${i * 0.06}s both`,
+            textDecoration: 'none',
+            transition: 'border-color 0.15s',
+            cursor: 'pointer',
           }}
         >
-          {/* Label + icon */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-            <span
-              style={{
-                fontSize: 10, fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: '0.14em',
-                color: t.text.muted,
-              }}
-            >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: t.text.muted }}>
               {card.label}
             </span>
-            <card.Icon
-              style={{
-                width: 14, height: 14,
-                color: i === cards.length - 1 && hasAlert ? t.semantic.error : t.text.muted,
-                opacity: 0.75,
-              }}
-            />
+            <card.Icon style={{ width: 13, height: 13, color: i === 2 && hasOverdue ? t.semantic.error : i === 3 && aiWarning ? t.semantic.warning : t.text.muted, opacity: 0.7 }} />
           </div>
 
-          {/* Value — large, light weight (Apple style) */}
           <AnimatedCounter
             value={card.value}
-            formatter={card.isRevenue ? formatPLN : (v) => String(Math.round(v))}
+            formatter={
+              card.isRevenue ? formatPLN
+              : card.label === 'Koszty AI (mies.)' ? (v) => `${Math.round(v)}%`
+              : (v) => String(Math.round(v))
+            }
             style={{
-              fontSize: card.isRevenue ? 28 : 40,
+              fontSize: card.isRevenue ? 26 : 38,
               fontWeight: 300,
               letterSpacing: '-0.045em',
               lineHeight: 1,
               display: 'block',
-              marginBottom: 16,
+              marginBottom: 14,
               ...(card.isRevenue ? {
                 background: t.brand.gradient,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
               } : {
-                color: i === cards.length - 1 && hasAlert ? t.semantic.error : t.text.primary,
+                color: i === 2 && hasOverdue ? t.semantic.error
+                     : i === 3 && aiWarning ? t.semantic.warning
+                     : t.text.primary,
               }),
             }}
           />
 
-          {/* Trend + sparkline */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 11, color: card.subColor, letterSpacing: '-0.01em' }}>
+            <span style={{ fontSize: 11, color: card.subColor, letterSpacing: '-0.01em', lineHeight: 1.3 }}>
               {card.sub}
             </span>
             <Sparkline data={card.sparkData} color={card.sparkColor} id={card.sparkId} />
           </div>
-        </div>
+        </a>
       ))}
     </div>
   )

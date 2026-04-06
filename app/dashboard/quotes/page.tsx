@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus,
   FileText,
@@ -68,10 +67,7 @@ interface StatCardProps {
 
 function StatCard({ label, value, sub, icon, index, highlight }: StatCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.06 }}
+    <div
       style={{
         borderRadius: t.radius.lg,
         padding: '20px 22px',
@@ -81,6 +77,8 @@ function StatCard({ label, value, sub, icon, index, highlight }: StatCardProps) 
         display: 'flex',
         flexDirection: 'column',
         gap: 0,
+        animation: 'cardEnter 0.3s ease both',
+        animationDelay: `${index * 0.06}s`,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -113,7 +111,7 @@ function StatCard({ label, value, sub, icon, index, highlight }: StatCardProps) 
         {value}
       </span>
       <span style={{ fontSize: 11, color: t.text.muted }}>{sub}</span>
-    </motion.div>
+    </div>
   )
 }
 
@@ -692,14 +690,9 @@ export default function QuotesPage() {
           </div>
 
           {/* Rows */}
-          <AnimatePresence initial={false}>
-            {quotes.map((quote, index) => (
-              <motion.div
+            {quotes.map((quote) => (
+              <div
                 key={quote.id}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                transition={{ duration: 0.22, delay: index === 0 ? 0 : 0 }}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '2fr 1fr 100px 140px 140px 80px',
@@ -868,9 +861,8 @@ export default function QuotesPage() {
                     <Trash2 style={{ width: 14, height: 14 }} />
                   </button>
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </AnimatePresence>
 
           {/* Table footer: count */}
           <div

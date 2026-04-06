@@ -19,10 +19,10 @@ export default function DocumentsPage() {
       }}>
         <FileText style={{ width: 36, height: 36, color: t.text.muted, margin: '0 auto 14px' }} />
         <div style={{ fontSize: 14, fontWeight: 600, color: t.text.secondary, marginBottom: 6 }}>
-          W budowie — Etap 6
+          Zaplanowane
         </div>
         <div style={{ fontSize: 13, color: t.text.muted }}>
-          Generator ofert PDF, szablony umów i archiwum dokumentów.
+          Generator ofert PDF, szablony umów i archiwum dokumentów. Na razie — wyceny twórz w Quote Builder.
         </div>
       </div>
     </div>

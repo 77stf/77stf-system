@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase'
+import { CreateTaskSchema } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   // Auth check
@@ -72,24 +73,15 @@ export async function POST(request: NextRequest) {
 
   const adminClient = createSupabaseAdminClient()
 
-  let body: {
-    title?: string
-    client_id?: string
-    description?: string
-    status?: string
-    priority?: string
-    due_date?: string
-  }
+  let rawBody: unknown
+  try { rawBody = await request.json() }
+  catch { return NextResponse.json({ error: 'Nieprawidłowy format danych' }, { status: 400 }) }
 
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Nieprawidłowy format danych' }, { status: 400 })
+  const parsed = CreateTaskSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Nieprawidłowe dane', details: parsed.error.issues }, { status: 400 })
   }
-
-  if (!body.title || typeof body.title !== 'string' || body.title.trim() === '') {
-    return NextResponse.json({ error: 'Tytuł zadania jest wymagany' }, { status: 400 })
-  }
+  const body = parsed.data
 
   try {
     const { data: task, error } = await adminClient

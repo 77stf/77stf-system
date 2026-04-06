@@ -1,251 +1,234 @@
 # 77STF — System Wewnętrzny
 
-## Kim jest 77STF
-Zewnętrzny dział technologiczny dla polskich firm MŚP (10-50 osób).
-Budujemy automatyzacje AI, głos AI, social media automation i content z drona.
-Jesteśmy częścią firmy klienta — bez etatu. Znamy ich systemy, proponujemy
-ulepszenia zanim klient to zauważy.
+## Tożsamość
+Zewnętrzny dział tech dla polskich MŚP (10-50 osób). Automatyzacje AI, głos AI, social media automation, content z drona.
+Leady: **Avvlo** (farmacja, Michał Szarycz — aktywny, audyt po świętach), **Petro-Lawa** (paliwo), **Lead #3** (kolega Michała).
 
-## Stack techniczny
-- Frontend: Next.js 14 App Router, TypeScript, Tailwind CSS, shadcn/ui (Radix)
-- Backend: Supabase (PostgreSQL) z RLS
-- Automatyzacje: n8n self-hosted na Hetzner VPS
-- AI: Claude API (główny), GPT-4o (fallback przy dużym wolumenie)
-- Głos AI: Vapi.ai + ElevenLabs (klonowanie głosu)
-- RPA: Playwright + PyAutoGUI + Anthropic Computer Use
-- OCR: Google Document AI
-- Transkrypcja: Fireflies.ai
-- Email: Resend
-- Deploy: Vercel (frontend) + Hetzner VPS (n8n)
+## Stack
+- Frontend: Next.js 16 App Router, TypeScript strict, Tailwind v4, shadcn/ui (Radix)
+- Backend: Supabase (PostgreSQL + RLS) | AI: Claude API (`lib/ai-config.ts`) | Email: Resend
+- Głos AI: Vapi.ai + ElevenLabs | RPA: Playwright | Transkrypcja: Fireflies.ai
+- Automatyzacje: n8n (Hetzner VPS — do kupienia) | Deploy: Vercel + Hetzner
+- Integracje MCP: Gmail, Google Calendar, Notion, Canva — aktywne w każdej sesji
 
-## Usługi które oferujemy
-1. Automatyzacja procesów operacyjnych (4-25k PLN setup)
-2. Asystent głosowy AI infolinia 24/7 (3-8k setup + 800-2000/mies)
-3. Automatyzacja social mediów z realnego contentu (2-4k setup + 1-2.5k/mies)
-4. Content z drona — Poznań i okolice (2-3k per sesja)
-5. Partnerstwo miesięczne (1.5-3.5k/mies per klient)
+## Aktualny status systemu (03.04.2026)
 
-## Docelowi klienci
-- Firmy 10-50 osób, właściciel decyduje sam, brak działu IT
-- Branże priorytetowe: transport/paliwo, farmacja, rolnictwo, budownictwo
-- Firmy w pipeline:
-  - **Avvlo (Instytut Farmaceutyczny)** — AKTYWNY LEAD, call 27.03 ✓, Michał Szarycz (CEO), instytut@avvlo.pl
-  - **Petro-Lawa Sp. z o.o.** — LEAD, oferta wysłana 14.03, odpowiedź chłodna, Sławomir Pałka (Dyrektor)
-  - **Lead #3** — kolega Michała z Avvlo, ta sama branża farmaceutyczna, pozyskany 27.03
+### ✅ ZBUDOWANE I DZIAŁAJĄCE
+- **CRM Core** — clients CRUD, notes CRUD, edit modal, status pipeline
+- **Quote Builder** — wyceny z pozycjami, statusy, stats
+- **Tasks** — zadania z priorytetami, deadlines, klientem
+- **Audit Wizard** — 29 pytań, 6 kategorii, Strefa Konsultanta, ROI pricing, Audit→Quote
+- **AI Meeting Brief** — Sonnet + CoT, dane z audytu injected
+- **Notes Ingest** — raw text → struktury (Haiku)
+- **Error Observatory** — logi błędów, admin-only DELETE
+- **AI Cost Tracking** — projekcja, per-client, budget alert, trend 30 dni
+- **Stack Intelligence** — React Flow per-klient, stack_items DB, CRUD
+- **Google OAuth + Magic Link** — login bez hasła, /auth/callback
+- **Intelligence Hub** — Command Center, Global Stack Map, Content Scout (live Sonnet), World Radar (live HN+CoinGecko)
+- **Guardian Agent 2.0** — 5 reguł monitoring, Haiku summary, historia raportów
+- **Agent Operator** — chat + tool use (8 narzędzi CRM), agentic loop — WYMAGA kontekstu systemu
+- **Content Studio** — kanban postów, AI Ideas (Sonnet), filtr platformy
+- **System Map** — interaktywna React Flow mapa całej architektury
+- **Settings** — status env vars, konto, MCP, pending migracje
+- **Slack Events API** — signature verification, async CRM ingest
+- **Security** — RLS na wszystkich tabelach (012), rate limiting, Zod, CSP
 
-## Co odróżnia nas od konkurencji
-- Wchodzimy w stary system ERP bez API przez RPA
-- Głos AI z prawdziwym sklonowanym głosem osoby z firmy klienta
-- Panel klienta gdzie sam widzi wartość automatyzacji w czasie rzeczywistym
-- Guardian Agent — sami proponujemy ulepszenia zanim klient zauważy problem
+### ⏳ MIGRACJE DO URUCHOMIENIA
+| Plik | Co | Priorytet |
+|------|----|-----------|
+| 005_ai_usage_log_extended.sql | +stop_reason, response_time_ms, cache_tokens | WYSOKI |
+| 006_lifecycle_and_attribution.sql | +created_by, lifecycle dates | ŚREDNI |
+| 007_audit_context.sql | +context_data, implementations, financial_summary | WYSOKI |
+| 009_intelligence_digests.sql | World Radar historia | WYSOKI |
+| 010_guardian.sql | Guardian historia raportów | WYSOKI |
+| 011_content_posts.sql | Content Studio | WYSOKI |
+| 012_rls_security_fix.sql | SECURITY FIX — RLS dla clients, error_log, ai_usage_log | KRYTYCZNY |
 
-## Design systemu — "Carbon Pro" (aktualny)
-- Styl: premium dark SaaS — ciemno-szary #111114 (nie czerń), czysta biała hierarchia tekstu
-- Tło strony: #111114, sidebar: #080811, karty: rgba(255,255,255,0.025) bg
-- Złoty akcent #C49A2E — TYLKO logo 77STF, Revenue KPI, główny CTA button (brand element)
-- Semantic colors: green=success, red=error, amber=warning — inline, nie tokeny
-- Tokeny: `import { t } from '@/lib/tokens'` — ZAWSZE używaj, nigdy hardcode hex
-- Formatery: `import { formatPLN, formatDate, relativeTime } from '@/lib/format'`
-- ReactBits: SpotlightCard (cursor tracking, ResizeObserver), AnimatedCounter (count-up)
-- Animacje: CSS `@keyframes` (cardEnter, fadeSlide, progressExpand, pageFadeIn) — NIE framer-motion
-- framer-motion USUNIĘTY ze wszystkich komponentów (powodował "Router action dispatched" error)
-- Sidebar nav-pill: CSS transition top/height (nie framer-motion spring)
-- backdropFilter USUNIĘTY z sidebar i stats-bar (powodował lag GPU)
-- Język UI: polski | Zmienne/komentarze: angielski
+### 🔲 DO ZBUDOWANIA (priorytet)
+- **Client Portal** `/portal` — strona klienta (Magic Link auth), panel wdrożeń, status, documents — BRAK (404)
+- **Agent Operator 2.0** — inject systemu context (CLAUDE.md + snapshot) do systemu promptu
+- **System Snapshot API** — `/api/system/snapshot` → JSON pełnego stanu systemu dla agentów
+- **WhatsApp → CRM** — Twilio/Meta webhook → ingest notatek
+- **n8n workflows** — World Radar cron, Slack → CRM, Guardian auto-run
 
-## Struktura aplikacji
-- app/dashboard/ — widok właściciela firmy (chroniony Supabase Auth)
-- app/portal/ — widok klienta (Supabase Auth magic link — NIE publiczny token!)
-- app/login/ — logowanie dla admina/pracowników (email + hasło)
-- app/api/ — API routes, webhooki (Fireflies, n8n)
-- components/ui/ — SpotlightCard, AnimatedCounter, CommandPalette, PageTransition, Skeleton
-- components/dashboard/ — Sidebar, TopBar, StatsBar, RevenueChart, PipelineSummary, ClientsTable
-- lib/supabase.ts — klient Supabase (SSR + admin)
-- lib/claude.ts — wrapper Claude API
-- lib/types.ts — typy TypeScript
-- lib/tokens.ts — design tokens (t.text.primary, t.brand.gold itd.)
-- lib/format.ts — formatPLN, formatDate, relativeTime, getInitials
-- lib/ai-config.ts — centralne zarządzanie modelami AI (fast/balanced/powerful per feature)
-- lib/audit-questions.ts — bank pytań audytowych
-- middleware.ts — ochrona /dashboard/** i /portal/**
-
-## Tabele Supabase (istniejące)
-- clients — klienci firmy (status: lead/active/partner/closed)
-- projects — projekty per klient (status: kickoff/demo1/demo2/production/delivered)
-- automations — automatyzacje klientów z pingiem i licznikami
-- meetings — transkrypty i analiza AI spotkań
-- documents — oferty, umowy, raporty (generowane automatycznie)
-- leads — leady sprzedażowe
-- monthly_reports — raporty miesięczne per klient
-- guardian_reports — raporty Guardian Agenta
-- referrals — program poleceń (10% przez 12 miesięcy)
-- error_log — logi błędów automatyzacji
-
-## Tabele Supabase (planowane)
-- user_roles — role pracowników: owner/partner/employee
-- client_contacts — kontakty klientów z dostępem do portalu (Supabase Auth, magic link)
-- audit_log — kto co kiedy oglądał/zmieniał (GDPR)
-- stack_items — narzędzia/integracje per klient (Stack Intelligence)
-- stack_connections — połączenia między narzędziami (edges grafu)
-- tech_discoveries — odkrycia AI Discovery Agenta
-- implementation_templates — szablony wdrożeń
-- system_prompts — wersje promptów Guardian Agent 2.0
-- reflection_logs — logi ewaluacji AI Judge
-- suggestions — sugestie poniżej progu zmiany
-
-## Zasady pracy z Claude Code
-
-### Sposób działania (OBOWIĄZKOWY)
-1. **Planuj przed działaniem** — zanim napiszesz kod, opisz podejście w 2-3 zdaniach. Jeśli coś idzie nie tak, zatrzymaj się i zaplanuj od nowa zamiast iść dalej złą drogą.
-2. **Używaj subagentów do researchu** — długie przeszukiwania codebase deleguj do agenta Explore/general-purpose, żeby nie zaśmiecać głównego kontekstu.
-3. **Tryb samodoskonalenia** — po każdej korekcie od właściciela aktualizuj CLAUDE.md (sekcja Zasady lub feedback memory), żeby nie popełniać tego samego błędu dwa razy.
-4. **Weryfikacja przed ukończeniem** — nigdy nie oznaczaj etapu jako gotowy bez uruchomienia `npm run build`. Jeśli build fail → napraw, nie pokazuj.
-
-### Test checklist po każdym etapie (OBOWIĄZKOWY)
-Po zakończeniu każdego etapu podaj użytkownikowi listę kroków do przetestowania w formie:
+### Env vars wymagane
 ```
-**Test checklist — Etap X:**
-1. Otwórz [url/widok]
-2. Sprawdź czy [konkretna funkcja] działa
-3. Przetestuj [edge case]
-4. Jeśli masz błąd [komunikat], sprawdź [gdzie]
+ANTHROPIC_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ADMIN_EMAILS=
+AI_MONTHLY_BUDGET_USD=50
+USD_PLN_RATE=4.0
+N8N_WEBHOOK_SECRET=          # gdy kupisz n8n
+SLACK_SIGNING_SECRET=        # Slack Events API
+SLACK_WEBHOOK_URL=           # Slack Incoming Webhook
+SLACK_CHANNELS=              # ID kanałów do nasłuchiwania
+RESEND_API_KEY=              # email
 ```
-Bez tej listy etap NIE jest ukończony.
 
-### Inne zasady
-- Zawsze uruchom build i sprawdź błędy zanim pokażesz wynik
-- Nigdy nie commituj do main bezpośrednio
-- Jeden cel na sesję
-- Po każdej sesji zaktualizuj sekcję "Aktualny status"
-- Używaj createSupabaseServerClient (SSR) w Server Components
-- Używaj createSupabaseAdminClient w API routes
+---
 
-## Roadmap etapów — stan na 2026-03-29
+## AGENT PERSONAS
 
-### ✅ Ukończone
-- Etap 1: Supabase tabele + lib (supabase, types, claude)
-- Etap 2–2h: Dashboard design system "Carbon Pro" — iteracje od Obsidian → Pearl → Void → Carbon
-- Etap 2f: UX polish — ⌘K Command Palette, loading skeletons, PageTransition (CSS, nie framer-motion)
-- Etap 3: Widok klienta /dashboard/clients/[id] — hero card, projekty, automatyzacje
-- Etap 4: Auth — middleware + /login + sidebar z sesją + add-client modal
-- Etap 5c: Quote Builder — /dashboard/quotes + /api/quotes
-- Etap 5d: Zadania — /dashboard/tasks + /api/tasks
-- Etap 5e: Audit Toolkit — /dashboard/clients/[id]/audit + /dashboard/audits
-- Etap 5f: Smart Notes Ingest — /api/clients/[id]/ingest
-- Etap 5g: AI Meeting Brief + Error Observatory:
-  - /dashboard/clients/[id]/prep — glass panels brief UI, BriefError z realnym błędem
-  - /dashboard/errors — panel logów z kopiowaniem, expandable metadata
-  - /api/clients/[id]/meeting-prep — Sonnet model, _scratchpad CoT, prompt v3
-  - /api/errors — GET + DELETE error_log
-  - Performance fix: framer-motion usunięty z 5 komponentów → CSS animations
-  - Bug fix: "Router action dispatched before initialization" → gone
-  - Bug fix: JSON truncation → strict limits + max_tokens 4096
+### 🔬 Radar — Chief Intelligence Officer
+**Zakres:** World news, AI trends, crypto, business intelligence
+**Model:** Sonnet (digest) + Haiku (filtering)
+**Output format:** source + credibility score + implikacje dla 77STF
+**Forbidden:** Spekulacje bez źródła. Polityczne komentarze.
+**Dostęp:** `/dashboard/intelligence` → Radar tab, `/api/intelligence/radar/run`
 
-### 🔧 Backlog techniczny
-- Migracja 003_error_log.sql — uruchom w Supabase SQL Editor jeśli nie zrobione
-- Zod validation w API routes
-- Portal klienta — magic link auth (Supabase Auth, nie token w URL)
-- client_notes tabela — migracja 001 musi być uruchomiona
+### 🎬 Scout — Content Analyst
+**Zakres:** Analiza URL/tekstu/transkryptów → wartość biznesowa dla 77STF
+**Model:** Sonnet
+**Output:** zawsze kończy BUILD | UPGRADE_AGENT | ADD_TO_ROADMAP | SKIP | MONITOR
+**Forbidden:** "może warto rozważyć" — zawsze konkretna decyzja.
+**Dostęp:** `/dashboard/intelligence` → Content Scout, `/api/intelligence/analyze`
 
-### 🚀 Kolejne etapy (priorytet ↓)
-- **Etap 6c: Voice Agent DEMO** — Vapi.ai + ElevenLabs (PRIORYTET dla Avvlo — demo dla Michała)
-- Etap 4b: Google Login (Supabase OAuth) + Settings Page
-- Etap 5a: Stack Intelligence — React Flow graph narzędzi per klient
-- Etap 5b: Claude Cost Tracking — ai_usage_log + /dashboard/ai-costs
-- Etap 6b: LeadGen System — Apify + Claude + leads scoring
-- Etap 7: Research Scout — n8n cron + tech_discoveries
-- Etap 7b: Smart Chatbot RAG — baza dokumentów dla Avvlo
-- Etap 8: Content Scout — video URL → AI analysis → build/skip
-- Etap 9: Improvements Panel — Guardian Agent suggestions z ROI
-- Etap 9b: Opinion Response AI — scraping + odpowiadanie na opinie
-- Etap 10: Guardian Agent 2.0 — AI Judge + self-improving prompts
-- Etap 11: Agent Operator — chat + MCP Gmail/Calendar/Notion
+### 🏗️ Architect — Solutions Architect
+**Zakres:** Stack wdrożeń dla klientów, ROI kalkulacje, audit analysis
+**Model:** Sonnet
+**Output:** operuje liczbami (PLN, ROI, payback months). Business-first.
+**Forbidden:** Wdrożenia bez ROI. Feature bez uzasadnienia klienta.
 
-### 📋 Strony istniejące (z kodem)
-/dashboard, /dashboard/clients, /dashboard/clients/[id], /dashboard/clients/[id]/prep,
-/dashboard/clients/[id]/audit, /dashboard/quotes, /dashboard/tasks, /dashboard/audits,
-/dashboard/errors, /dashboard/projects*, /dashboard/documents*, /dashboard/guardian*,
-/dashboard/settings*, /login (* = placeholder "W budowie")
+### 🎯 Hunter — Business Development
+**Zakres:** Lead research, scoring, cold outreach
+**Model:** Haiku (scoring) + Sonnet (pitch)
+**Forbidden:** Wysyła cokolwiek BEZ zatwierdzenia właściciela.
 
-## Stack Intelligence Panel (planowane — Etap 5-8)
-Visual tree każdego wdrożenia per klient + AI agent monitorujący nowe technologie.
-- Każdy klient ma interaktywny graph (React Flow): nodes = narzędzia, edges = przepływ danych
-- Tech Radar: AI Discovery Agent skanuje co 24h nowe wersje, lepsze narzędzia, optymalizacje
-- Implementation Templates: biblioteka gotowych schematów wdrożeń
-- Rozszerzenie Guardian Agenta → Guardian Agent 3.0
-- Szczegóły w memory: project_stack_intelligence.md
+### 🛡️ Guardian — System Reliability & Action Advisor
+**Zakres:** Monitoring systemu + proaktywne alerty + gotowe plany działania dla każdego problemu
+**Model:** Haiku (summary) + Sonnet (rekomendacje)
+**Zachowanie:** Każdy alert ma `action_type` (crm/code/config/manual) i opcjonalny `recommend_prompt`.
+  - `crm` → przycisk "Otwórz profil klienta"
+  - `code/config` → przycisk "Jak to naprawić?" → Sonnet generuje krok-po-kroku plan
+  - Teksty zawsze po ludzku — dla właściciela firmy, nie technika
+**Endpoints:** `/dashboard/guardian`, `/api/guardian/run`, `/api/guardian/recommend`
 
-## Agent Operator (w budowie)
-Prawa ręka firmy — agent AI który:
-- Zna wszystkie transkrypty spotkań z klientami
-- Ma dostęp do Notion (MCP), Gmail (MCP), Google Calendar (MCP)
-- Pomaga przygotować się do spotkań, analizuje rozmowy, sugeruje następne kroki
-- Docelowo: steruje zadaniami, przypomina o obietnicach, wykrywa ryzyka
+### 💬 Personal Assistant — Life & Business Organizer
+**Zakres:** Slack notatki → CRM, Google Calendar, daily brief
+**Model:** Haiku (ingest) + Sonnet (brief)
+**Forbidden:** Nie interpretuje nadmiernie. Niepewny → pyta.
+**Dostęp:** `/api/webhooks/slack-events`, Gmail MCP, Calendar MCP
 
-## Self-Improving AI — wzorzec do wdrożenia (Guardian Agent 2.0)
-Znalezisko z YouTube (2026-03-24). Wzorzec samodoskonalącego się systemu AI.
+### 🤖 Operator — System Controller
+**Zakres:** Naturalny język → akcje na CRM (8 narzędzi: klienci, zadania, notatki, statystyki)
+**Model:** Sonnet + tool use (agentic loop max 5 iteracji)
+**PROBLEM:** Nie ma kontekstu systemu — nie wie o plikach, roadmapie, architekturze.
+**FIX:** Inject system snapshot + CLAUDE.md summary do system prompt przy każdym wywołaniu.
+**Dostęp:** `/dashboard/operator`, `/api/operator/chat`
 
-### Jak działa
-- Chatbot główny + oddzielny **AI Judge** (LLM-as-judge) który czyta rozmowy
-- Judge ocenia jakość wg rubryku punktowego (1-5): kompletność, głębokość, ton, zakres
-- Jeśli wynik poniżej progu → automatyczna aktualizacja system promptu
-- Pełna historia wersji promptów + możliwość rewertu
-- Cooldown period po każdej aktualizacji (ochrona przed niestabilnością)
-- Panel admin: logi refleksji, sugestie, ustawienia progu i interwału
+---
 
-### Nowe tabele Supabase (gdy będziemy wdrażać)
-- `system_prompts` — wersje promptów z historią
-- `reflection_logs` — logi każdej ewaluacji AI Judge
-- `suggestions` — sugestie poniżej progu zmiany (do ręcznego przeglądu)
+## Agent Routing
 
-### Gdzie zastosować w 77STF
-1. **Guardian Agent** — Judge ocenia jakość guardian_reports
-2. **Agent Operator** — chatbot wewnętrzny sam się poprawia na podstawie rozmów z właścicielem
-3. **Chatboty dla klientów** — możliwa usługa premium dla klientów MŚP
+| Intencja | Akcja |
+|----------|-------|
+| Buduj funkcję / etap | Plan → implementacja bezpośrednia |
+| Szukanie w codebase (>3 pliki) | `Agent(Explore)` |
+| Szukanie w ≤3 plikach | `Grep`/`Read` |
+| Jasny błąd | Czytaj error → fix — BEZ agenta |
+| Analiza bezpieczeństwa | agent: `sc-security-engineer` |
+| Performance | agent: `sc-performance-engineer` |
+| Refactoring | agent: `sc-refactoring-expert` |
+| React bugs | agent: `react-expert` |
+| TypeScript errors | agent: `typescript-expert` |
+| Brief klienta | `/api/clients/[id]/meeting-prep` |
+| Koszty AI | `/dashboard/ai-costs` |
+| Analiza treści | Scout → `/dashboard/intelligence` |
+| World news | Radar → `/dashboard/intelligence` |
+| Slack notatka | PA → Slack → `/api/webhooks/slack-events` |
+| System check | Guardian → `/dashboard/guardian` |
+| CRM naturalny język | Operator → `/dashboard/operator` |
 
-### Status
-Nie zaczęty. Priorytet: po ukończeniu Etapu 3. Szczegóły w memory: `project_self_improving_system.md`
+---
 
-## AI Meeting Brief — architektura (Etap 5g)
-- Model: claude-sonnet-4-6 (balanced) — świadomy wybór dla jakości polszczyzny (~3¢/brief)
-- Prompt pattern: _scratchpad chain-of-thought → AI analizuje klienta przed generowaniem JSON
-- Anti-pattern examples w prompcie: ✗ "Jaki integracja" → ✓ "Z jakiego systemu korzystacie?"
-- Pola briefa: executive_summary (4-5 zdań), decision_maker_profile, conversation_tone,
-  pain_points, opportunities, proposed_solutions (z ROI), questions_to_ask (otwarte),
-  objections_to_handle, closing_strategy, next_steps
-- max_tokens: 4096 (Sonnet jest zwięzły, ~1500 tokenów na brief), timeout: 90s
-- Fallback: mock brief gdy brak ANTHROPIC_API_KEY
-- Error log: każdy błąd → error_log table → /dashboard/errors
+## Design: Carbon Pro
+- Tokeny: `import { t } from '@/lib/tokens'` — ZAWSZE, nigdy hardcode hex
+- Formattery: `import { formatPLN, formatDate, relativeTime } from '@/lib/format'`
+- Animacje: CSS `@keyframes` — NIE framer-motion (USUNIĘTY permanentnie)
+- Gold `#C49A2E` — TYLKO logo 77STF, Revenue KPI, główny CTA
+- Język UI: **polski** | zmienne/komentarze/pliki: **angielski**
 
-## Aktualny status — 2026-03-29
+## Zasady kodu (OBOWIĄZKOWE)
+- `createSupabaseServerClient()` → Server Components / Route Handlers
+- `createSupabaseAdminClient()` → TYLKO `app/api/` (bypasses RLS)
+- Auth w każdym API route: `const { data: { user } } = await authClient.auth.getUser()`
+- Rate limiting: `rateLimit()` z `lib/rate-limit.ts` na AI endpoints
+- Zod validation na wszystkich POST routes: `lib/validation.ts`
+- Każde wywołanie AI → `callClaude()` z `lib/claude.ts`
+- Error messages do klienta: ZAWSZE generyczne — detale do error_log
+- Build MUSI być zielony przed zakończeniem etapu
+- RLS na każdej nowej tabeli — ZAWSZE
 
-### Ukończone (najnowsze na górze)
-- **Etap 5g ukończony** — AI Meeting Brief v2 + Performance + Error Observatory:
-  - Brief: Sonnet model, _scratchpad CoT, anti-pattern prompt, 2 nowe pola (DM profile, tone)
-  - Glass panels UI: GlassPanel, PanelLabel, ROI bar z gold gradient, timeline steps
-  - BriefError: pokazuje realny błąd (nie "Tryb demo"), z hint (timeout/credit/auth)
-  - /dashboard/errors: panel logów, copy-all button, expandable metadata
-  - Performance: framer-motion usunięty z 5 komponentów → CSS keyframes
-  - Bug fix: "Router action dispatched before initialization" → naprawiony
-  - Bug fix: JSON truncation → naprawiony (strict limits + max_tokens 4096)
-  - Build clean ✓
+## Komendy
+```bash
+npm run dev      # http://localhost:3000
+npm run build    # weryfikacja TypeScript + build
+claude-monitor   # burn rate tokenów
+```
 
-- **Etap 5f ukończony** — Smart Notes Ingest — /api/clients/[id]/ingest
-- **Etap 5e ukończony** — Audit Toolkit — /dashboard/clients/[id]/audit + /dashboard/audits
-- **Etap 5d ukończony** — Tasks (Zadania) — /dashboard/tasks + /api/tasks
-- **Etap 5c ukończony** — Quote Builder — /dashboard/quotes + /api/quotes
-- **Etap 4 ukończony** — middleware + /login + sidebar z sesją + add-client modal
-- **Etap 3 ukończony** — widok klienta /dashboard/clients/[id]
-- **Etap 2h ukończony** — "Carbon Pro" design system, tokens, formatters, build clean
-- **Etap 1 ukończony** — Supabase + lib files
+## Zainstalowane narzędzia
+- **claudekit**: TypeScript BLOCKING hook, 14 subagentów
+- **SuperClaude**: sc-analyze, sc-implement, sc-improve, sc-research, sc-troubleshoot, sc-test, sc-cleanup
+- **RIPER-5**: structured workflow R→I→P→E→R
+- **MCP aktywne:** Gmail, Google Calendar, Notion, Canva
+- **MCP do dodania (priorytet):** Slack MCP (`claude mcp add slack`), Perplexity MCP (live web research dla Scout)
 
-### Migracje SQL (Supabase SQL Editor)
-Jeśli nie uruchomione:
-- 001_quotes_tasks.sql — quotes, tasks, client_notes
-- 002_audits.sql — audyty
-- 003_error_log.sql — logi błędów (KRYTYCZNE)
+## Roadmap — DWIE ŚCIEŻKI
 
-### Następny priorytet
-**Etap 6c: Voice Agent DEMO** dla Avvlo (Vapi.ai + ElevenLabs)
-- Michał czeka na demo — to nasz priorytetowy deal
-- Wymaga: konto Vapi.ai, klucz ElevenLabs, sklonowany głos próbny
+### 🏗 ŚCIEŻKA SYSTEMOWA
+
+**✅ DONE (04.04.2026)**
+CRM | Audyty | Wyceny | AI Brief | Stack Intelligence | Intelligence Hub | Guardian | Operator 2.0 | Content Studio | System Map | Security RLS | System Snapshot API | Client Portal
+
+**🔥 TIER 1 — Natychmiastowe (2-4h każde)**
+- **5i — Slack LIVE:** skonfiguruj SLACK_SIGNING_SECRET + SLACK_WEBHOOK_URL + auto-Calendar events
+- **5j — Neuro-Content Upgrade:** engagement score, neuro-optimized hooks (TRIBE V2 principles), Meta/LinkedIn links
+- **5k — Fireflies Webhook:** `POST /api/webhooks/fireflies` → auto-ingest transkryptów spotkań → CRM notes + tasks
+- **5l — WhatsApp → CRM:** Meta Business API webhook → `POST /api/webhooks/whatsapp`
+
+**🏗 TIER 2 — System Intelligence (tydzień 2)**
+- **6 — Client Health Score:** AI churn risk score, upsell opportunities, inactive alerts per klient
+- **7 — Revenue Intelligence:** pipeline value, MRR forecast, conversion rates w dashboard
+- **8 — Email Automation:** quote follow-up (7 dni), onboarding sequence, Guardian alerts (Resend)
+
+**🚀 TIER 3 — Self-Improving (tydzień 3-4)**
+- **9 — Multi-Agent Pipeline:** trigger nowy klient → Scout research + Architect stack + Hunter email — wszystko auto
+- **10 — Memory & Learning:** zaakceptowane wyceny enrichują pricing DB, audyty budują client archetypes
+- **11 — Audit Wizard v2:** dodaj sekcję "Kontekst Biznesowy" (People/HR, Finance visibility, Competitive landscape)
+
+**🛸 TIER 4 — Enterprise (miesiąc 2+)**
+- **12 — Competitive Intelligence:** Perplexity MCP → monitor konkurencji klientów weekly
+- **13 — Auto-Reporting:** miesięczny PDF dla klienta (wdrożenia, oszczędności, plan) → Resend
+- **14 — n8n Orchestration:** po zakupie — social auto-post, Guardian/Radar cron, invoice automation
+- **15 — Voice Agent Demo:** Vapi.ai + ElevenLabs → demo URL dla klientów na spotkaniach
+
+### 🎯 ŚCIEŻKA KLIENCKA (tylko gdy user mówi "klienci/demo/Avvlo")
+Voice Agent DEMO (Vapi+ElevenLabs) | Opinion AI (Google Maps/Ceneo) | Smart Chatbot RAG | Social Media Auto | CEO Reports
+
+## n8n — priorytetowe workflows (po zakupie)
+Gotowe endpointy w naszym API czekają na n8n jako trigger:
+- `slack-to-crm` → `/api/webhooks/slack-ingest` ✅
+- `cron-guardian` (8:00) → `/api/guardian/run` ✅
+- `cron-radar` (7:00) → `/api/intelligence/radar/run` ✅
+- `whatsapp-to-crm` → `/api/webhooks/whatsapp` (do zbudowania)
+- `fireflies-transcript` → `/api/webhooks/fireflies` (do zbudowania)
+- `linkedin-lead-capture` → `/api/clients` ✅
+- `quote-follow-up` (7d) → Resend + `/api/quotes` ✅
+- `social-auto-post` → Meta/LinkedIn API (Etap 5j)
+- `google-reviews-monitor` → AI response draft → email (Etap 12)
+
+---
+
+## OBOWIĄZKOWY STATUS BLOCK
+
+Po każdym ukończonym etapie ZAWSZE kończ odpowiedź:
+
+```
+---
+📍 **Etap:** [nazwa]
+✅ **Zrobione:** [co konkretnie]
+🔥 **Następny:** [co dalej]
+📋 **Roadmap:** [aktualny stan]
+```

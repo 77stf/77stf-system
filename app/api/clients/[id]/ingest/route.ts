@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase'
 import Anthropic from '@anthropic-ai/sdk'
 import { getModel } from '@/lib/ai-config'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { IngestSchema } from '@/lib/validation'
 
 interface RouteContext { params: Promise<{ id: string }> }
 
@@ -13,6 +15,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { limit, windowMs } = RATE_LIMITS.AI_INGEST
+  if (!rateLimit(`ingest:${user.id}`, limit, windowMs)) {
+    return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj chwilę.' }, { status: 429 })
+  }
 
   const { id } = await params
   let body: { raw_text?: string; source?: string }

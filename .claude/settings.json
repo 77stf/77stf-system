@@ -3,5 +3,86 @@
     "allow": [
       "Read(//c/Users/crypt/AppData/Local/Temp/claude/c--Users-crypt-77stf-system/95559bfc-70f5-4737-8398-cea13f2fb880/tasks/**)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /c/Users/crypt/77stf-system && npx tsc --noEmit 2>&1 | tail -8"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claudekit-hooks run check-any-changed"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claudekit-hooks run lint-changed"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claudekit-hooks run typecheck-changed"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '✅ Sesja zakonczona. Pamietaj: npm run build + test checklist + /sync-memory jezeli cos waznego!'"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claudekit-hooks run create-checkpoint"
+          },
+          {
+            "type": "command",
+            "command": "claudekit-hooks run typecheck-project"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claudekit-hooks run create-checkpoint"
+          },
+          {
+            "type": "command",
+            "command": "claudekit-hooks run typecheck-project"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [],
+    "UserPromptSubmit": []
   }
 }
