@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { callClaude } from '@/lib/claude'
 import { AI_MODELS } from '@/lib/ai-config'
-import { verifySlackSignature, buildConfirmationBlock } from '@/lib/slack'
+import { verifySlackSignature, buildConfirmationBlock, sendSlackBlocks } from '@/lib/slack'
 
 // POST /api/webhooks/slack-events
 // Slack Events API — receives messages from subscribed channels
@@ -150,13 +150,8 @@ Ustaw skip:true tylko jeśli wiadomość to spam/reakcja emoji/przypadkowa treś
 
   // Send confirmation back to Slack
   const summary = actions.summary as string ?? 'Zalogowano'
-  const slackWebhook = process.env.SLACK_WEBHOOK_URL
-  if (slackWebhook && results.length > 0) {
+  if (results.length > 0) {
     const payload = buildConfirmationBlock(summary, results)
-    await fetch(slackWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch(() => null)
+    await sendSlackBlocks(payload.blocks, 'crm')
   }
 }

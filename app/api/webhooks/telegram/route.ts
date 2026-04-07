@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { callClaude } from '@/lib/claude'
 import { AI_MODELS } from '@/lib/ai-config'
+import { sendSlackMessage } from '@/lib/slack'
 
 // POST /api/webhooks/telegram
 // Called by the telegram-forwarder service (running on Hetzner VPS)
@@ -129,6 +130,19 @@ flag:
       metadata: { channel_id, message_id },
     })
     return NextResponse.json({ error: 'Wewnętrzny błąd serwera' }, { status: 500 })
+  }
+
+  // Slack alert for high-priority messages
+  if ((ai_flag === 'urgent' || ai_flag === 'opportunity') && ai_score !== null && ai_score >= 7) {
+    const flagEmoji = ai_flag === 'urgent' ? '🔴' : '🟢'
+    const flagLabel = ai_flag === 'urgent' ? 'PILNE' : 'SZANSA'
+    const preview = text ? text.slice(0, 200) + (text.length > 200 ? '…' : '') : '[brak tekstu]'
+    // urgent → owner's private alerts, opportunity → team media channel
+    const slackCh = ai_flag === 'urgent' ? 'alerts' : 'media'
+    void sendSlackMessage(
+      `${flagEmoji} *[${flagLabel}]* Telegram / *${channel_name}*\n>${preview}\n_Score: ${ai_score}/10 · ${new Date(sent_at).toLocaleString('pl')}_`,
+      slackCh,
+    )
   }
 
   return NextResponse.json({ ok: true, ai_score, ai_flag })

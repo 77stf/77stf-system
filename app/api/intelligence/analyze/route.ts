@@ -214,9 +214,9 @@ async function fetchYoutubeContent(videoId: string, videoUrl: string): Promise<{
   return null
 }
 
-// ─── Instagram: OG tags extraction ───────────────────────────────────────────
+// ─── Instagram: OG tags + image extraction ───────────────────────────────────
 
-async function fetchInstagramContent(url: string): Promise<{ text: string } | null> {
+async function fetchInstagramContent(url: string): Promise<{ text: string; imageUrl?: string } | null> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; 77STF-Scout/1.0)' },
@@ -227,9 +227,9 @@ async function fetchInstagramContent(url: string): Promise<{ text: string } | nu
 
     const ogTitle = html.match(/<meta property="og:title" content="([^"]+)"/i)?.[1] ?? ''
     const ogDesc = html.match(/<meta property="og:description" content="([^"]+)"/i)?.[1] ?? ''
+    const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/i)?.[1] ?? ''
 
     // og:title format: 'Username on Instagram: "caption here"'
-    // Use [\s\S] instead of . with s-flag (TS ES2017 target)
     const captionMatch = ogTitle.match(/on Instagram:\s*[""\u201c]([\s\S]+?)[""\u201d]?\s*$/)
     const caption = captionMatch?.[1] ?? ''
 
@@ -238,7 +238,25 @@ async function fetchInstagramContent(url: string): Promise<{ text: string } | nu
     if (caption && caption.length > 5) parts.push(`Podpis:\n${caption}`)
     if (ogDesc && ogDesc !== caption && ogDesc !== ogTitle) parts.push(`Opis: ${ogDesc}`)
 
-    return parts.length > 0 ? { text: parts.join('\n\n') } : null
+    return parts.length > 0 ? { text: parts.join('\n\n'), imageUrl: ogImage || undefined } : null
+  } catch { return null }
+}
+
+// ─── Download image → base64 ──────────────────────────────────────────────────
+
+async function fetchImageAsBase64(url: string): Promise<{ data: string; mediaType: string } | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; 77STF-Scout/1.0)' },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return null
+    const contentType = res.headers.get('content-type') ?? 'image/jpeg'
+    const mediaType = contentType.split(';')[0].trim()
+    if (!mediaType.startsWith('image/')) return null
+    const buffer = await res.arrayBuffer()
+    const data = Buffer.from(buffer).toString('base64')
+    return { data, mediaType }
   } catch { return null }
 }
 
@@ -398,6 +416,40 @@ export async function POST(req: Request) {
         }, { status: 422 })
       }
       contentToAnalyze = `[INSTAGRAM POST]\nURL: ${detectedUrl}\n\n${ig.text}`
+
+      // Vision: if post has an image, analyze it visually with Claude
+      if (ig.imageUrl) {
+        const img = await fetchImageAsBase64(ig.imageUrl)
+        if (img) {
+          const { text } = await callClaude({
+            feature: 'contentScout',
+            model: AI_MODELS.balanced,
+            system: buildSystemPrompt(detectedContentType),
+            messages: [{
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: img.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: img.data },
+                },
+                {
+                  type: 'text',
+                  text: `Przeanalizuj ten post Instagram — zarówno grafikę jak i tekst:\n\n${contentToAnalyze}`,
+                },
+              ],
+            }],
+            max_tokens: 1800,
+            triggered_by: 'user',
+          })
+          const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          try {
+            const analysis = JSON.parse(clean) as Record<string, unknown>
+            return NextResponse.json({ analysis, model: AI_MODELS.balanced, content_type: detectedContentType, transcript_method: 'vision' })
+          } catch {
+            return NextResponse.json({ analysis: { summary: text, decision: 'SKIP', raw: true }, model: AI_MODELS.balanced, content_type: detectedContentType })
+          }
+        }
+      }
 
     } else {
       const web = await fetchWebContent(detectedUrl)

@@ -3,6 +3,7 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/sup
 import { callClaude } from '@/lib/claude'
 import { AI_MODELS } from '@/lib/ai-config'
 import { rateLimit } from '@/lib/rate-limit'
+import { sendSlackMessage } from '@/lib/slack'
 
 // ─── Alert types ──────────────────────────────────────────────────────────────
 
@@ -313,6 +314,21 @@ Zacznij od czasownika lub nazwy klienta. Przykład: "Petro-Lawa czeka 9 dni — 
       source: 'api/guardian/run',
       message: saveError.message,
     })
+  }
+
+  // Slack digest — send if called from cron or if there are critical alerts
+  if (trigger === 'cron' || critical > 0) {
+    const criticalAlerts = allAlerts.filter(a => a.severity === 'critical')
+    const warningAlerts = allAlerts.filter(a => a.severity === 'warning')
+    const lines = [
+      `🛡️ *Guardian — Raport dzienny 77STF*`,
+      `${summary}`,
+      '',
+      critical > 0 ? `🔴 *Krytyczne (${critical}):*\n${criticalAlerts.map(a => `• ${a.title}`).join('\n')}` : '',
+      warnings > 0 ? `⚠️ *Ostrzeżenia (${warnings}):*\n${warningAlerts.slice(0, 3).map(a => `• ${a.title}`).join('\n')}` : '',
+      allAlerts.length === 0 ? '✅ Wszystko działa sprawnie.' : '',
+    ].filter(Boolean).join('\n')
+    void sendSlackMessage(lines, 'brief')
   }
 
   return NextResponse.json({

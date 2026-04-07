@@ -359,7 +359,7 @@ export function TelegramMonitor({ initialMessages, initialStats, totalToday, urg
           { key: 'issue',       label: '🟡 Problemy', color: '#fbbf24' },
         ].map(f => (
           <button
-            key={String(f.key)}
+            key={f.key ?? '__all__'}
             onClick={() => setActiveFlag(activeFlag === f.key ? null : f.key)}
             style={{
               fontSize: 12, padding: '4px 12px', borderRadius: t.radius.full,
@@ -401,7 +401,7 @@ export function TelegramMonitor({ initialMessages, initialStats, totalToday, urg
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {displayMessages.map(msg => (
-            <MessageCard key={msg.id} msg={msg} />
+            <MessageCard key={msg.id ?? `${msg.channel_id}-${msg.message_id}`} msg={msg} />
           ))}
         </div>
       )}
