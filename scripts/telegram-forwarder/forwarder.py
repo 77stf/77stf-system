@@ -78,31 +78,52 @@ def get_media_type(msg) -> str | None:
     return None
 
 
+MEDIA_ICONS = {'photo': '🖼️', 'video': '🎬', 'audio': '🎵', 'voice': '🎤', 'document': '📎', 'sticker': '🎭', 'poll': '📊'}
+CHANNEL_EMOJIS = {
+    'MODELS RECRUITMENT': '👤', 'CHATTING': '💬', 'AI INTEGRATION': '🤖',
+    'GENERAL QUESTIONS': '❓', 'REDDIT (+TRAFFIC)': '🔴', 'INSTAGRAM (+TRAFFIC)': '📸',
+    'TIKTOK (+TRAFFIC)': '🎵', 'FETLIFE (+TRAFFIC)': '🔗', "GG'S (+TRAFFIC)": '🎮',
+    'TWITTER (+TRAFFIC)': '🐦', 'OFTV (+TRAFFIC)': '📺', 'YOUTUBE (+TRAFFIC)': '▶️',
+    'THREADS (+TRAFFIC)': '🧵',
+}
+
+def html_escape(s: str) -> str:
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
 def format_forward_text(channel_name: str, sender: str, sent_dt: datetime, text: str,
                          media_type: str | None, reply_sender: str | None,
                          reply_text: str | None, forwarded_from: str | None) -> str:
-    """Formats the message for posting to group topic."""
+    """Formats the message as HTML for posting to group topic."""
+    ch_emoji = CHANNEL_EMOJIS.get(channel_name, '📢')
+    time_str = sent_dt.strftime('%d.%m.%Y %H:%M')
+    sender_safe = html_escape(sender)
+    channel_safe = html_escape(channel_name)
+
     lines = []
-    lines.append(f'📢 *{channel_name}*')
-    lines.append(f'👤 Od: {sender}')
-    lines.append(f'🕐 {sent_dt.strftime("%d.%m.%Y %H:%M")}')
+    # Header
+    lines.append(f'{ch_emoji} <b>{channel_safe}</b>  ·  <code>{time_str}</code>')
+    lines.append(f'👤 <b>{sender_safe}</b>')
 
     if forwarded_from:
-        lines.append(f'↪️ Forwarded z: {forwarded_from}')
+        lines.append(f'↪️ <i>Forwarded z: {html_escape(forwarded_from)}</i>')
 
-    lines.append('━━━━━━━━━━━━━━━━')
+    lines.append('─────────────────────')
 
+    # Reply context
     if reply_sender and reply_text:
-        lines.append(f'💬 *Odpowiedź na @{reply_sender}:*')
-        lines.append(f'_{reply_text[:150]}{"…" if len(reply_text) > 150 else ""}_')
+        preview = html_escape(reply_text[:120]) + ('…' if len(reply_text) > 120 else '')
+        lines.append(f'💬 <i>↩ @{html_escape(reply_sender)}: {preview}</i>')
         lines.append('')
 
+    # Media indicator
     if media_type:
-        icons = {'photo': '🖼', 'video': '🎬', 'audio': '🎵', 'voice': '🎤', 'document': '📎'}
-        lines.append(f'{icons.get(media_type, "📎")} [{media_type.upper()}]')
+        icon = MEDIA_ICONS.get(media_type, '📎')
+        lines.append(f'{icon} <b>[{media_type.upper()}]</b>')
 
+    # Main content
     if text:
-        lines.append(text)
+        lines.append('')
+        lines.append(html_escape(text))
 
     return '\n'.join(lines)
 
@@ -132,7 +153,7 @@ async def send_to_group_topic(client: TelegramClient, topic_id: int, text: str, 
             TARGET_GROUP,
             text,
             reply_to=topic_id,
-            parse_mode='md',
+            parse_mode='html',
         )
         # If message has media, forward it separately (can't forward, so download+reupload)
         if msg.media and not isinstance(msg.media, MessageMediaWebPage):
