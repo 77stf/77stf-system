@@ -1,0 +1,25 @@
+name: Deploy Telegram Forwarder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/telegram-forwarder/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up \
+            --service 8110915e-66db-4285-8cf4-2729c3340c35 \
+            --environment 25558c9d-f170-4ee7-8b7a-4e07f28c2afe \
+            --detach

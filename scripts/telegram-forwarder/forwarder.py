@@ -32,6 +32,7 @@ from telethon.tl.types import (
     MessageMediaPhoto, MessageMediaDocument,
     MessageMediaWebPage, PeerChannel,
     DocumentAttributeVideo, DocumentAttributeAudio,
+    DocumentAttributeFilename, MessageMediaPoll,
 )
 
 load_dotenv()
@@ -40,11 +41,10 @@ log = logging.getLogger('77stf-tg')
 
 API_ID        = int(os.environ['TELEGRAM_API_ID'])
 API_HASH      = os.environ['TELEGRAM_API_HASH']
-SESSION_STR   = os.environ.get('TELEGRAM_SESSION', '')  # StringSession — no SMS needed on server
-
-WEBHOOK_URL    = os.environ['WEBHOOK_URL']
+SESSION_STR   = os.environ.get('TELEGRAM_SESSION', '')
+WEBHOOK_URL   = os.environ['WEBHOOK_URL']
 WEBHOOK_SECRET = os.environ['TELEGRAM_WEBHOOK_SECRET']
-TARGET_GROUP   = int(os.environ.get('TARGET_GROUP_ID', '0'))
+TARGET_GROUP  = int(os.environ.get('TARGET_GROUP_ID', '0'))
 
 # channel_id → topic_id in your supergroup
 CHANNEL_MAP = {
@@ -63,22 +63,9 @@ CHANNEL_MAP = {
     -1002003349867: {'name': 'THREADS (+TRAFFIC)',   'topic': 13},
 }
 
+# topic_id used for formatting tests
+TEST_TOPIC_ID = 140
 
-def get_media_type(msg) -> str | None:
-    if isinstance(msg.media, MessageMediaPhoto):
-        return 'photo'
-    if isinstance(msg.media, MessageMediaDocument):
-        doc = msg.media.document
-        for attr in getattr(doc, 'attributes', []):
-            if isinstance(attr, DocumentAttributeVideo):
-                return 'video'
-            if isinstance(attr, DocumentAttributeAudio):
-                return 'voice' if getattr(attr, 'voice', False) else 'audio'
-        return 'document'
-    return None
-
-
-MEDIA_ICONS = {'photo': '🖼️', 'video': '🎬', 'audio': '🎵', 'voice': '🎤', 'document': '📎', 'sticker': '🎭', 'poll': '📊'}
 CHANNEL_EMOJIS = {
     'MODELS RECRUITMENT': '👤', 'CHATTING': '💬', 'AI INTEGRATION': '🤖',
     'GENERAL QUESTIONS': '❓', 'REDDIT (+TRAFFIC)': '🔴', 'INSTAGRAM (+TRAFFIC)': '📸',
@@ -87,45 +74,133 @@ CHANNEL_EMOJIS = {
     'THREADS (+TRAFFIC)': '🧵',
 }
 
+MEDIA_ICONS = {
+    'photo': '🖼️', 'video': '🎬', 'audio': '🎵',
+    'voice': '🎤', 'document': '📎', 'sticker': '🎭', 'poll': '📊',
+}
+
+
 def html_escape(s: str) -> str:
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-def format_forward_text(channel_name: str, sender: str, sent_dt: datetime, text: str,
-                         media_type: str | None, reply_sender: str | None,
-                         reply_text: str | None, forwarded_from: str | None) -> str:
+
+def get_media_info(msg) -> tuple[str | None, str | None]:
+    """Returns (media_type, filename)."""
+    if isinstance(msg.media, MessageMediaPhoto):
+        return 'photo', None
+    if isinstance(msg.media, MessageMediaPoll):
+        return 'poll', None
+    if isinstance(msg.media, MessageMediaDocument):
+        doc = msg.media.document
+        filename = None
+        media_type = 'document'
+        for attr in getattr(doc, 'attributes', []):
+            if isinstance(attr, DocumentAttributeFilename):
+                filename = attr.file_name
+            elif isinstance(attr, DocumentAttributeVideo):
+                media_type = 'video'
+            elif isinstance(attr, DocumentAttributeAudio):
+                media_type = 'voice' if getattr(attr, 'voice', False) else 'audio'
+        return media_type, filename
+    return None, None
+
+
+def format_poll(msg) -> str | None:
+    """Serializes a poll to readable HTML text."""
+    if not isinstance(msg.media, MessageMediaPoll):
+        return None
+    poll = msg.media.poll
+    question = html_escape(poll.question.text if hasattr(poll.question, 'text') else str(poll.question))
+    options = '\n'.join(
+        f'  • {html_escape(a.text.text if hasattr(a.text, "text") else str(a.text))}'
+        for a in poll.answers
+    )
+    kind = '🗳️ QUIZ' if getattr(poll, 'quiz', False) else '📊 ANKIETA'
+    return f'<b>[{kind}]</b> {question}\n{options}'
+
+
+def build_sender_html(sender_name: str, sender_username: str | None, sender_id: int | None) -> str:
+    """
+    Returns clickable sender link if username is available,
+    otherwise falls back to tg://user?id= deep link (works in Telegram).
+    Plain text only as last resort.
+    """
+    safe_name = html_escape(sender_name)
+    if sender_username:
+        return f'<a href="https://t.me/{sender_username}">{safe_name}</a>'
+    elif sender_id:
+        return f'<a href="tg://user?id={sender_id}">{safe_name}</a>'
+    return f'<b>{safe_name}</b>'
+
+
+def format_forward_text(
+    channel_name: str,
+    sender_name: str,
+    sender_username: str | None,
+    sender_id: int | None,
+    sent_dt: datetime,
+    text: str,
+    media_type: str | None,
+    filename: str | None,
+    reply_sender: str | None,
+    reply_text: str | None,
+    forwarded_from: str | None,
+) -> str:
     """Formats the message as HTML for posting to group topic."""
     ch_emoji = CHANNEL_EMOJIS.get(channel_name, '📢')
-    time_str = sent_dt.strftime('%d.%m.%Y %H:%M')
-    sender_safe = html_escape(sender)
-    channel_safe = html_escape(channel_name)
+    time_str = sent_dt.strftime('%d.%m  %H:%M')
+
+    sender_html = build_sender_html(sender_name, sender_username, sender_id)
 
     lines = []
-    # Header
-    lines.append(f'{ch_emoji} <b>{channel_safe}</b>  ·  <code>{time_str}</code>')
-    lines.append(f'👤 <b>{sender_safe}</b>')
+
+    # Header — only emoji + time + sender (no channel name, we know the topic)
+    lines.append(f'{ch_emoji}  <code>{time_str}</code>  ·  {sender_html}')
 
     if forwarded_from:
         lines.append(f'↪️ <i>Forwarded z: {html_escape(forwarded_from)}</i>')
 
-    lines.append('─────────────────────')
+    # Shorter divider
+    lines.append('──────────────')
 
     # Reply context
     if reply_sender and reply_text:
-        preview = html_escape(reply_text[:120]) + ('…' if len(reply_text) > 120 else '')
-        lines.append(f'💬 <i>↩ @{html_escape(reply_sender)}: {preview}</i>')
-        lines.append('')
+        preview = html_escape(reply_text[:100]) + ('…' if len(reply_text) > 100 else '')
+        lines.append(f'<blockquote>↩ {html_escape(reply_sender)}: {preview}</blockquote>')
 
-    # Media indicator
-    if media_type:
+    # Media indicator with filename if available (polls handled separately below)
+    if media_type and media_type != 'poll':
         icon = MEDIA_ICONS.get(media_type, '📎')
-        lines.append(f'{icon} <b>[{media_type.upper()}]</b>')
+        if filename:
+            lines.append(f'{icon} <b>{html_escape(filename)}</b>')
+        else:
+            lines.append(f'{icon} <i>[{media_type}]</i>')
 
     # Main content
     if text:
-        lines.append('')
+        if media_type and media_type != 'poll':
+            lines.append('')
         lines.append(html_escape(text))
 
     return '\n'.join(lines)
+
+
+# ─── Rate limit queue ─────────────────────────────────────────────────────────
+# Batching: max 1 media reupload per 0.5s per group to avoid Telegram flood wait
+
+_upload_semaphore = asyncio.Semaphore(1)
+
+async def _rate_limited_upload(client: TelegramClient, group: int, file_bytes: bytes,
+                                topic_id: int, filename: str | None) -> None:
+    async with _upload_semaphore:
+        await client.send_file(
+            group,
+            file_bytes,
+            reply_to=topic_id,
+            attributes=[DocumentAttributeFilename(filename)] if filename else [],
+            force_document=False,
+        )
+        await asyncio.sleep(0.5)
 
 
 async def send_to_webhook(session: aiohttp.ClientSession, payload: dict) -> None:
@@ -143,28 +218,36 @@ async def send_to_webhook(session: aiohttp.ClientSession, payload: dict) -> None
         log.error(f'Webhook error: {e}')
 
 
-async def send_to_group_topic(client: TelegramClient, topic_id: int, text: str, msg) -> None:
-    """Sends formatted message to group topic. Also forwards media if present."""
+async def send_to_group_topic(
+    client: TelegramClient,
+    topic_id: int,
+    text: str,
+    msg,
+    filename: str | None,
+    poll_text: str | None,
+) -> None:
+    """Sends formatted message to group topic. Also forwards media with proper filename."""
     if not TARGET_GROUP:
         return
     try:
-        # Send text first
+        # For polls: append poll content directly to the formatted message
+        final_text = text
+        if poll_text:
+            final_text = text + '\n\n' + poll_text
+
         await client.send_message(
             TARGET_GROUP,
-            text,
+            final_text,
             reply_to=topic_id,
             parse_mode='html',
         )
-        # If message has media, forward it separately (can't forward, so download+reupload)
-        if msg.media and not isinstance(msg.media, MessageMediaWebPage):
+
+        # Reupload media (skip polls — they're serialized to text above)
+        if msg.media and not isinstance(msg.media, (MessageMediaWebPage, MessageMediaPoll)):
             try:
-                file = await msg.download_media(bytes)
-                if file:
-                    await client.send_file(
-                        TARGET_GROUP,
-                        file,
-                        reply_to=topic_id,
-                    )
+                file_bytes = await msg.download_media(bytes)
+                if file_bytes:
+                    await _rate_limited_upload(client, TARGET_GROUP, file_bytes, topic_id, filename)
             except Exception as e:
                 log.warning(f'Could not reupload media: {e}')
     except Exception as e:
@@ -190,7 +273,6 @@ async def main():
         # Normalize channel ID (Telethon may omit -100 prefix)
         if chat_id > 0:
             chat_id = -1000000000000 - chat_id if chat_id < 1000000000 else -(1000000000000 + chat_id)
-        # Try both forms
         meta = CHANNEL_MAP.get(chat_id) or CHANNEL_MAP.get(int(f'-100{abs(chat_id)}'))
         if not meta:
             return
@@ -199,27 +281,25 @@ async def main():
         topic_id = meta['topic']
 
         # Sender info
-        sender = None
-        sender_id = None
         sender_name = 'Kanał'
         sender_username = None
+        sender_id = None
         try:
             sender = await msg.get_sender()
             if sender:
                 sender_id = sender.id
-                sender_name = getattr(sender, 'first_name', '') or getattr(sender, 'title', '') or 'Nieznany'
-                if getattr(sender, 'last_name', None):
-                    sender_name += f' {sender.last_name}'
-                sender_username = getattr(sender, 'username', None)
+                first = getattr(sender, 'first_name', '') or ''
+                last = getattr(sender, 'last_name', '') or ''
+                title = getattr(sender, 'title', '') or ''
+                sender_name = f'{first} {last}'.strip() or title or 'Nieznany'
+                sender_username = getattr(sender, 'username', None) or None
         except Exception:
             pass
 
         # Reply-to info
-        reply_to_id = None
         reply_to_sender = None
         reply_to_text = None
         if msg.reply_to_msg_id:
-            reply_to_id = msg.reply_to_msg_id
             try:
                 replied = await msg.get_reply_message()
                 if replied:
@@ -242,11 +322,12 @@ async def main():
             except Exception:
                 pass
 
-        media_type = get_media_type(msg)
+        media_type, filename = get_media_info(msg)
+        poll_text = format_poll(msg)
         text = msg.text or ''
         sent_dt = msg.date.replace(tzinfo=timezone.utc)
 
-        # 1. Send to 77STF webhook (stores in DB + AI scoring)
+        # 1. Send to 77STF webhook
         async with aiohttp.ClientSession() as session:
             payload = {
                 'channel_id': str(int(f'-100{abs(chat_id)}') if not str(chat_id).startswith('-100') else chat_id),
@@ -257,7 +338,8 @@ async def main():
                 'sender_username': sender_username,
                 'content': text if text else None,
                 'media_type': media_type,
-                'reply_to_id': reply_to_id,
+                'filename': filename,
+                'reply_to_id': msg.reply_to_msg_id,
                 'reply_to_sender': reply_to_sender,
                 'reply_to_text': reply_to_text,
                 'forwarded_from': forwarded_from,
@@ -269,17 +351,20 @@ async def main():
         if topic_id:
             formatted = format_forward_text(
                 channel_name=channel_name,
-                sender=sender_name,
+                sender_name=sender_name,
+                sender_username=sender_username,
+                sender_id=sender_id,
                 sent_dt=sent_dt,
                 text=text,
                 media_type=media_type,
+                filename=filename,
                 reply_sender=reply_to_sender,
                 reply_text=reply_to_text,
                 forwarded_from=forwarded_from,
             )
-            await send_to_group_topic(client, topic_id, formatted, msg)
+            await send_to_group_topic(client, topic_id, formatted, msg, filename, poll_text)
 
-        log.info(f'[{channel_name}] msg {msg.id} — media:{media_type} len:{len(text)}')
+        log.info(f'[{channel_name}] msg {msg.id} — media:{media_type} file:{filename} len:{len(text)}')
 
     log.info(f'Monitoring {len(channel_ids)} channels. Ctrl+C to stop.')
     await client.run_until_disconnected()

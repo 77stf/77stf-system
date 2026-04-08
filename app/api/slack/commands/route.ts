@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     '/77radar':  '⏳ Ładuję Radar...',
     '/77task':   '⏳ Tworzę zadanie...',
     '/77media':  '⏳ Sprawdzam kanały...',
+    '/77quote':  '⏳ Sprawdzam wyceny...',
   }
   return NextResponse.json({ response_type: 'ephemeral', text: acks[command] ?? '⏳ Przetwarzam...' })
 }
@@ -49,6 +50,7 @@ async function handleCommand(command: string, text: string, responseUrl: string,
       case '/77radar':  await cmdRadar(responseUrl); break
       case '/77task':   await cmdTask(text, responseUrl, userName); break
       case '/77media':  await cmdMedia(responseUrl); break
+      case '/77quote':  await cmdQuote(text, responseUrl); break
       default:
         await postToSlack(responseUrl, buildErrorBlock(`Nieznana komenda: ${command}`))
     }
@@ -160,23 +162,33 @@ Odpowiadaj krótko i konkretnie (max 150 słów). Używaj emoji. Jeśli pytanie 
 async function cmdStatus(responseUrl: string) {
   const supabase = createSupabaseAdminClient()
 
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1); startOfMonth.setHours(0, 0, 0, 0)
+  const budget = parseFloat(process.env.AI_MONTHLY_BUDGET_USD ?? '50')
+
   const [
     { count: clientCount },
     { count: taskCount },
     { count: msgCount },
     { data: recentErrors },
+    { data: aiUsage },
   ] = await Promise.all([
     supabase.from('clients').select('*', { count: 'exact', head: true }),
     supabase.from('tasks').select('*', { count: 'exact', head: true }).neq('status', 'done'),
     supabase.from('telegram_messages').select('*', { count: 'exact', head: true }).gte('sent_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
     supabase.from('error_log').select('source, created_at').order('created_at', { ascending: false }).limit(3),
+    supabase.from('ai_usage_log').select('cost_usd').gte('created_at', startOfMonth.toISOString()),
   ])
+
+  const aiCostUsd = (aiUsage ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0)
+  const aiPct = budget > 0 ? Math.round((aiCostUsd / budget) * 100) : 0
 
   await postToSlack(responseUrl, buildStatusBlock({
     clients: clientCount ?? 0,
     openTasks: taskCount ?? 0,
     telegramToday: msgCount ?? 0,
     errors: recentErrors ?? [],
+    aiCostPct: aiPct,
   }))
 }
 
@@ -254,6 +266,55 @@ Klienci: ${clientList}`,
     response_type: 'in_channel',
     blocks: [
       { type: 'section', text: { type: 'mrkdwn', text: `✅ *Zadanie dodane*\n📋 ${parsed.title ?? text}\nPriorytet: ${parsed.priority ?? 'medium'} · Dodał: @${userName}` } },
+    ],
+  })
+}
+
+// ─── /77quote [klient] — Status wycen ────────────────────────────────────────
+async function cmdQuote(clientQuery: string, responseUrl: string) {
+  const supabase = createSupabaseAdminClient()
+
+  let query = supabase
+    .from('quotes')
+    .select('id, title, status, updated_at, clients(name)')
+    .in('status', ['sent', 'draft'])
+    .order('updated_at', { ascending: true })
+    .limit(10)
+
+  if (clientQuery) {
+    const { data: found } = await supabase
+      .from('clients')
+      .select('id')
+      .ilike('name', `%${clientQuery}%`)
+      .limit(1)
+    if (found?.[0]) {
+      query = query.eq('client_id', found[0].id)
+    }
+  }
+
+  const { data: quotes } = await query
+
+  if (!quotes?.length) {
+    await postToSlack(responseUrl, buildErrorBlock(
+      clientQuery ? `Brak wycen dla "${clientQuery}"` : 'Brak aktywnych wycen (sent/draft)'
+    ))
+    return
+  }
+
+  const now = Date.now()
+  const lines = quotes.map(q => {
+    const days = Math.floor((now - new Date(q.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    const client = (q.clients as { name?: string } | null)?.name ?? '—'
+    const icon = q.status === 'sent' ? (days >= 14 ? '🔴' : days >= 7 ? '⚠️' : '📤') : '📝'
+    return `${icon} *${q.title}* — ${client} — ${days}d [${q.status}]`
+  })
+
+  await postToSlack(responseUrl, {
+    response_type: 'in_channel',
+    blocks: [
+      { type: 'header', text: { type: 'plain_text', text: `💰 Wyceny${clientQuery ? ` — ${clientQuery}` : ''} (${quotes.length})` } },
+      { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: '🔴 ≥14 dni · ⚠️ ≥7 dni · 📤 sent · 📝 draft' }] },
     ],
   })
 }

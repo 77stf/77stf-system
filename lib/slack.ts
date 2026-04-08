@@ -136,10 +136,15 @@ export function buildStatusBlock(data: {
   openTasks: number
   telegramToday: number
   errors: { source: string; created_at: string }[]
+  aiCostPct?: number
 }) {
   const errorText = data.errors.length > 0
     ? data.errors.map(e => `• ${e.source}`).join('\n')
     : '✅ Brak błędów'
+
+  const aiText = data.aiCostPct !== undefined
+    ? `${data.aiCostPct}% budżetu`
+    : 'brak danych'
 
   return {
     response_type: 'ephemeral',
@@ -151,9 +156,10 @@ export function buildStatusBlock(data: {
           { type: 'mrkdwn', text: `*Klienci:*\n${data.clients}` },
           { type: 'mrkdwn', text: `*Otwarte zadania:*\n${data.openTasks}` },
           { type: 'mrkdwn', text: `*Telegram dziś:*\n${data.telegramToday} msg` },
-          { type: 'mrkdwn', text: `*Ostatnie błędy:*\n${errorText}` },
+          { type: 'mrkdwn', text: `*AI (mies.):*\n${aiText}` },
         ],
       },
+      { type: 'section', text: { type: 'mrkdwn', text: `*Ostatnie błędy:*\n${errorText}` } },
       { type: 'context', elements: [{ type: 'mrkdwn', text: `Sprawdzono: ${new Date().toLocaleString('pl')}` }] },
     ],
   }

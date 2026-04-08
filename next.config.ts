@@ -10,10 +10,8 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // unsafe-eval/unsafe-inline only in dev (Next.js HMR requires it)
-      process.env.NODE_ENV === "development"
-        ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-        : "script-src 'self'",
+      // Next.js App Router requires unsafe-inline for hydration scripts
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self'",

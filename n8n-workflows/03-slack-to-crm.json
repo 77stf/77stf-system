@@ -1,0 +1,102 @@
+{
+  "name": "77STF — Slack to CRM (calendar hint)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "slack-to-crm",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Slack",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "slack-to-crm-77stf"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://77stf-system-crypto77stf-4430s-projects.vercel.app/api/webhooks/slack-ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "x-webhook-secret", "value": "a2e09b11523539ca26e4bb60468b4015e114848edf3dbb9e382201d6e5e4e664"}]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel_id: $json.body.event?.channel || $json.body.channel_id, message: $json.body.event?.text || $json.body.message, user_name: $json.body.event?.user || $json.body.user_name }) }}",
+        "options": {"timeout": 15000}
+      },
+      "id": "crm-ingest",
+      "name": "CRM Ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "conditions": [{"id": "c1", "leftValue": "={{ $json.calendar_hint?.title }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}}],
+          "combinator": "and"
+        }
+      },
+      "id": "has-calendar",
+      "name": "Ma calendar hint?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_PLACEHOLDER",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: '📅 *Dodaj do kalendarza:* ' + $json.calendar_hint.title + ' — ' + ($json.calendar_hint.when_hint || 'data TBD') + ' z ' + ($json.calendar_hint.with_whom || 'nieznany') }) }}",
+        "options": {}
+      },
+      "id": "slack-calendar",
+      "name": "Slack calendar hint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_PLACEHOLDER",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: '✅ ' + ($json.summary || 'Notatka zapisana w CRM') }) }}",
+        "options": {}
+      },
+      "id": "slack-confirm",
+      "name": "Slack confirm",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {"responseCode": 200}
+      },
+      "id": "respond-slack",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 480]
+    }
+  ],
+  "connections": {
+    "Webhook Slack": {"main": [[{"node": "Respond 200", "type": "main", "index": 0}, {"node": "CRM Ingest", "type": "main", "index": 0}]]},
+    "CRM Ingest": {"main": [[{"node": "Ma calendar hint?", "type": "main", "index": 0}]]},
+    "Ma calendar hint?": {"main": [[{"node": "Slack calendar hint", "type": "main", "index": 0}], [{"node": "Slack confirm", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1", "saveManualExecutions": true},
+  "staticData": null,
+  "pinData": {}
+}

@@ -1,0 +1,90 @@
+{
+  "name": "77STF — Morning Digest (08:30 pon-pt)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {"interval": [{"field": "cronExpression", "expression": "30 8 * * 1-5"}]}
+      },
+      "id": "schedule-trigger",
+      "name": "Pon-Pt 08:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://77stf-system-crypto77stf-4430s-projects.vercel.app/api/system/snapshot",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "x-webhook-secret", "value": "a2e09b11523539ca26e4bb60468b4015e114848edf3dbb9e382201d6e5e4e664"}]
+        },
+        "options": {"timeout": 20000}
+      },
+      "id": "snapshot",
+      "name": "System Snapshot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://77stf-system-crypto77stf-4430s-projects.vercel.app/api/guardian",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "x-webhook-secret", "value": "a2e09b11523539ca26e4bb60468b4015e114848edf3dbb9e382201d6e5e4e664"}]
+        },
+        "options": {"timeout": 10000}
+      },
+      "id": "guardian-reports",
+      "name": "Guardian Reports",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 480]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "text",
+              "value": "=*77STF — Podsumowanie operacyjne {{ new Date().toLocaleDateString('pl-PL', {weekday:'long', day:'numeric', month:'long'}) }}*\n\n*Klienci:* {{ $('System Snapshot').item.json.stats?.total_clients || 0 }} total | {{ $('System Snapshot').item.json.stats?.active_clients || 0 }} aktywnych | {{ $('System Snapshot').item.json.stats?.lead_clients || 0 }} leadow\n*Zadania:* {{ $('System Snapshot').item.json.stats?.open_tasks || 0 }} otwartych\n*Koszty AI:* {{ $('System Snapshot').item.json.stats?.ai_cost_month_usd ? ($('System Snapshot').item.json.stats.ai_cost_month_usd * 4).toFixed(0) + ' PLN' : 'brak danych' }}\n\nhttps://77stf-system-crypto77stf-4430s-projects.vercel.app/dashboard",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "build-msg",
+      "name": "Buduj brief",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_PLACEHOLDER",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "slack-brief",
+      "name": "Slack daily-brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Pon-Pt 08:30": {"main": [[{"node": "System Snapshot", "type": "main", "index": 0}, {"node": "Guardian Reports", "type": "main", "index": 0}]]},
+    "System Snapshot": {"main": [[{"node": "Buduj brief", "type": "main", "index": 0}]]},
+    "Buduj brief": {"main": [[{"node": "Slack daily-brief", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1", "saveManualExecutions": true},
+  "staticData": null,
+  "pinData": {}
+}

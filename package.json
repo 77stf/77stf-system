@@ -6,7 +6,8 @@
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync-n8n": "node --env-file=.env.local n8n-workflows/sync.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

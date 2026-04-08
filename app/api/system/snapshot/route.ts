@@ -5,10 +5,16 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/sup
 // Returns a full JSON snapshot of the system state for AI agents (Operator, Guardian, etc.)
 // This is the "brain" context that lets agents reason about the actual state of 77STF.
 
-export async function GET() {
-  const authClient = await createSupabaseServerClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
+export async function GET(req: Request) {
+  // Allow n8n cron calls via webhook secret (no session cookie needed)
+  const webhookSecret = req.headers.get('x-webhook-secret')?.trim()
+  const isValidCron = webhookSecret && webhookSecret === process.env.N8N_WEBHOOK_SECRET?.trim()
+
+  if (!isValidCron) {
+    const authClient = await createSupabaseServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
+  }
 
   const supabase = createSupabaseAdminClient()
   const now = new Date()

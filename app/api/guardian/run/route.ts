@@ -16,6 +16,7 @@ export interface GuardianAlert {
   action_type: AlertActionType   // drives which buttons to show
   client_id?: string
   client_name?: string
+  quote_id?: string
   title: string
   detail: string
   action: string                 // short human-readable next step
@@ -107,6 +108,7 @@ async function checkSentQuotes(supabase: ReturnType<typeof createSupabaseAdminCl
         action_type: 'crm',
         client_id: quote.client_id ?? undefined,
         client_name: clientName,
+        quote_id: quote.id,
         title: `Wycena "${quote.title}" czeka ${days} dni`,
         detail: `${clientName} nie odpowiedział na wycenę. Po 14 dniach szanse na konwersję spadają o 60%.`,
         action: `Follow up do ${clientName} — zapytaj czy mają pytania`,
@@ -232,12 +234,23 @@ async function checkStackErrors(supabase: ReturnType<typeof createSupabaseAdminC
 // ─── POST /api/guardian/run ───────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const authClient = await createSupabaseServerClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
+  // Allow n8n cron calls via webhook secret (no session cookie needed)
+  const webhookSecret = req.headers.get('x-webhook-secret')?.trim()
+  const isValidCron = webhookSecret && webhookSecret === process.env.N8N_WEBHOOK_SECRET?.trim()
 
-  if (!rateLimit(`guardian:${user.id}`, 10, 60 * 60 * 1000)) {
-    return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj chwilę.' }, { status: 429 })
+  if (!isValidCron) {
+    const authClient = await createSupabaseServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
+
+    if (!rateLimit(`guardian:${user.id}`, 10, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj chwilę.' }, { status: 429 })
+    }
+  } else {
+    // Cron rate limit: max 5 guardian runs per hour
+    if (!rateLimit('guardian:cron', 5, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Cron rate limit exceeded.' }, { status: 429 })
+    }
   }
 
   let trigger = 'manual'

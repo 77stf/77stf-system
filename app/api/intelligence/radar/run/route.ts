@@ -74,13 +74,24 @@ async function fetchCoinGeckoNews(): Promise<RawItem[]> {
 // ─── POST /api/intelligence/radar/run ────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const authClient = await createSupabaseServerClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
+  // Allow n8n cron calls via webhook secret (no session cookie needed)
+  const webhookSecret = req.headers.get('x-webhook-secret')?.trim()
+  const isValidCron = webhookSecret && webhookSecret === process.env.N8N_WEBHOOK_SECRET?.trim()
 
-  // Rate limit: max 5 digest runs per hour
-  if (!rateLimit(`radar:${user.id}`, 5, 60 * 60 * 1000)) {
-    return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj przed następnym digestem.' }, { status: 429 })
+  if (!isValidCron) {
+    const authClient = await createSupabaseServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
+
+    // Rate limit: max 5 digest runs per hour
+    if (!rateLimit(`radar:${user.id}`, 5, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj przed następnym digestem.' }, { status: 429 })
+    }
+  } else {
+    // Cron rate limit: max 3 radar runs per hour
+    if (!rateLimit('radar:cron', 3, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Cron rate limit exceeded.' }, { status: 429 })
+    }
   }
 
   let trigger = 'manual'
