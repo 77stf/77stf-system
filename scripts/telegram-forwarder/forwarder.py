@@ -37,7 +37,7 @@ from telethon.tl.types import (
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-log = logging.getLogger('77stf-tg')
+log = logging.getLogger('77stf-tg')  # noqa
 
 API_ID        = int(os.environ['TELEGRAM_API_ID'])
 API_HASH      = os.environ['TELEGRAM_API_HASH']
