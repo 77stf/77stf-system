@@ -1,11 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import {
-  ReactFlow, Background, Controls, MiniMap,
-  type Node, type Edge, ConnectionLineType, BackgroundVariant, MarkerType,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
 import { t } from '@/lib/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -495,66 +490,10 @@ function AgentExportView() {
   )
 }
 
-// ─── Diagram view (React Flow) ────────────────────────────────────────────────
-
-const RF_COL = { ext: 0, agent: 240, wf: 480, api: 720, page: 970, db: 1220 }
-const RF_R = 82
-
-function DiagramNode({ data }: { data: Record<string, unknown> }) {
-  const d = data as unknown as SNode
-  const c = C[d.category]
-  return (
-    <div style={{ background: c.bg, border: `1.5px solid ${c.border}88`, borderRadius: 8, padding: '7px 12px', minWidth: 140, maxWidth: 190, cursor: 'pointer' }}>
-      <div style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', color: c.text, marginBottom: 3 }}>{c.label}</div>
-      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(242,242,244,0.9)', lineHeight: 1.2 }}>{d.label}</div>
-      {d.path && <div style={{ fontSize: 9, color: '#818CF8', fontFamily: 'monospace', marginTop: 2 }}>{d.path}</div>}
-    </div>
-  )
-}
-
-const rfNodeTypes = { sn: DiagramNode }
-
-function DiagramView() {
-  const rfNodes: Node[] = NODES.map((n, i) => {
-    const colMap: Record<Cat | 'infra', number> = { integration: RF_COL.ext, infra: RF_COL.ext, agent: RF_COL.agent, workflow: RF_COL.wf, api: RF_COL.api, page: RF_COL.page, database: RF_COL.db }
-    const colNodes = NODES.filter(x => colMap[x.category] === colMap[n.category])
-    const rowIdx = colNodes.findIndex(x => x.id === n.id)
-    return {
-      id: n.id, type: 'sn',
-      data: n as unknown as Record<string, unknown>,
-      position: { x: colMap[n.category], y: 40 + rowIdx * RF_R },
-    }
-  })
-
-  const rfEdges: Edge[] = NODES.flatMap(n =>
-    (n.connects || []).map(tid => ({
-      id: `${n.id}-${tid}`,
-      source: n.id, target: tid,
-      style: { stroke: C[n.category].border + '44', strokeWidth: 1 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: C[n.category].border + '44', width: 10, height: 10 },
-    }))
-  )
-
-  return (
-    <div style={{ width: '100%', height: 700, borderRadius: 12, overflow: 'hidden', background: '#07070B', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <ReactFlow nodes={rfNodes} edges={rfEdges} nodeTypes={rfNodeTypes}
-        fitView fitViewOptions={{ padding: 0.08 }}
-        connectionLineType={ConnectionLineType.SmoothStep}
-        style={{ background: 'transparent' }} proOptions={{ hideAttribution: true }}
-      >
-        <Background color="rgba(255,255,255,0.015)" variant={BackgroundVariant.Dots} gap={26} size={1} />
-        <Controls style={{ background: 'rgba(20,20,26,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-        <MiniMap style={{ background: 'rgba(20,20,26,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-          nodeColor={n => C[(n.data as unknown as SNode)?.category ?? 'page']?.border ?? '#888'} />
-      </ReactFlow>
-    </div>
-  )
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function SystemMap() {
-  const [tab, setTab] = useState<'grid' | 'diagram' | 'stack' | 'agent'>('grid')
+  const [tab, setTab] = useState<'grid' | 'stack' | 'agent'>('grid')
   const [search, setSearch] = useState('')
 
   const live = NODES.filter(n => n.status === 'live').length
@@ -563,10 +502,9 @@ export function SystemMap() {
   const workflows = NODES.filter(n => n.category === 'workflow' && n.status === 'live').length
 
   const TABS = [
-    { key: 'grid',    label: '⊞ Mapa',       desc: 'Wszystkie moduły w siatce' },
-    { key: 'diagram', label: '↔ Diagram',    desc: 'Połączenia (React Flow)' },
-    { key: 'stack',   label: '📦 Tech Stack', desc: 'Narzędzia i biblioteki' },
-    { key: 'agent',   label: '🤖 Agent API',  desc: 'Export JSON dla agentów' },
+    { key: 'grid',  label: '⊞ Mapa',       desc: 'Wszystkie moduły w siatce' },
+    { key: 'stack', label: '📦 Tech Stack', desc: 'Narzędzia i biblioteki' },
+    { key: 'agent', label: '🤖 Agent API',  desc: 'Export JSON dla agentów' },
   ] as const
 
   return (
@@ -620,10 +558,9 @@ export function SystemMap() {
         </div>
       </div>
 
-      {tab === 'grid'    && <GridView search={search} />}
-      {tab === 'diagram' && <DiagramView />}
-      {tab === 'stack'   && <TechStackView />}
-      {tab === 'agent'   && <AgentExportView />}
+      {tab === 'grid'  && <GridView search={search} />}
+      {tab === 'stack' && <TechStackView />}
+      {tab === 'agent' && <AgentExportView />}
     </div>
   )
 }

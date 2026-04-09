@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar userEmail={user?.email} />
         <div className="flex flex-col flex-1" style={{ marginLeft: 240 }}>
           <TopBar userEmail={user?.email} />
-          <main style={{ flex: 1, padding: '28px 32px' }}>
+          <main style={{ flex: 1, padding: '24px 28px', minWidth: 0 }}>
             <PageTransition>
               {children}
             </PageTransition>
