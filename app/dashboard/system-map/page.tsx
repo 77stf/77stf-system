@@ -10,13 +10,16 @@ export default async function SystemMapPage() {
   if (!user) notFound()
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1400 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'rgba(242,242,244,0.95)', margin: '0 0 4px' }}>
-          System Architecture Map
-        </h1>
-        <p style={{ fontSize: 13, color: 'rgba(242,242,244,0.4)', margin: 0 }}>
-          Pełna mapa 77STF — integracje, agenty, API, strony, bazy danych. Kliknij węzeł po szczegóły.
+    <div style={{ padding: '28px 32px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: 'rgba(242,242,244,0.95)', margin: 0 }}>
+            System Architecture
+          </h1>
+          <span style={{ fontSize: 11, color: 'rgba(242,242,244,0.3)', fontFamily: 'monospace' }}>77STF v2.0</span>
+        </div>
+        <p style={{ fontSize: 13, color: 'rgba(242,242,244,0.38)', margin: 0 }}>
+          Pełna mapa systemu — integracje, agenty AI, n8n workflows, API, strony, bazy danych i tech stack.
         </p>
       </div>
       <SystemMap />
