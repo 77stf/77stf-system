@@ -1,7 +1,9 @@
-import { Settings, CheckCircle, XCircle, AlertCircle, ExternalLink, Mail, Calendar, FileText, Zap, Key, Shield, DollarSign } from 'lucide-react'
+import { Settings, CheckCircle, XCircle, AlertCircle, ExternalLink, Mail, Calendar, FileText, Zap, Key, Shield, DollarSign, ToggleLeft } from 'lucide-react'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { createSupabaseAdminClient } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import { t } from '@/lib/tokens'
+import { ControlCenter } from './control-center'
 
 // ─── Env status helpers (server-side only) ────────────────────────────────────
 
@@ -64,6 +66,10 @@ export default async function SettingsPage() {
   if (!user) notFound()
 
   const env = getEnvStatus()
+
+  // Fetch toggles
+  const admin = createSupabaseAdminClient()
+  const { data: toggles } = await admin.from('system_toggles').select('*').order('category').order('key')
 
   // Determine auth methods
   const provider = user.app_metadata?.provider as string | undefined
@@ -217,6 +223,11 @@ export default async function SettingsPage() {
             Otwórz Supabase SQL Editor <ExternalLink size={10} />
           </a>
         </div>
+      </Section>
+
+      {/* Control Center */}
+      <Section title="Control Center" icon={ToggleLeft}>
+        <ControlCenter initialToggles={toggles ?? []} />
       </Section>
 
       {/* Quick links */}
