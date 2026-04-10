@@ -8,14 +8,23 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Brak autoryzacji' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 200)
+  const since = searchParams.get('since') ?? '24h'
 
   const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('error_log')
     .select('id, source, message, metadata, created_at')
     .order('created_at', { ascending: false })
     .limit(limit)
+
+  if (since !== 'all') {
+    const hours = since === '7d' ? 168 : since === '30d' ? 720 : 24
+    const sinceDate = new Date(Date.now() - hours * 60 * 60 * 1000)
+    query = query.gte('created_at', sinceDate.toISOString())
+  }
+
+  const { data, error } = await query
 
   if (error) return NextResponse.json({ error: 'Wewnętrzny błąd serwera' }, { status: 500 })
 

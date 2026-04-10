@@ -1,4 +1,4 @@
-import { Settings, CheckCircle, XCircle, AlertCircle, ExternalLink, Mail, Calendar, FileText, Zap, Key, Shield, DollarSign, ToggleLeft } from 'lucide-react'
+import { Settings, CheckCircle, XCircle, AlertCircle, ExternalLink, FileText, Zap, Key, Shield, DollarSign, ToggleLeft, MessageSquare } from 'lucide-react'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
@@ -22,8 +22,14 @@ function getEnvStatus() {
     admin_emails:        process.env.ADMIN_EMAILS ?? null,
     // n8n
     n8n_secret:          !!process.env.N8N_WEBHOOK_SECRET,
+    n8n_api_key:         !!process.env.N8N_API_KEY,
     // Email
     resend:              !!process.env.RESEND_API_KEY,
+    resend_from:         process.env.RESEND_FROM_EMAIL ?? null,
+    // Slack
+    slack_signing:       !!process.env.SLACK_SIGNING_SECRET,
+    slack_bot_token:     !!process.env.SLACK_BOT_TOKEN,
+    slack_channels:      process.env.SLACK_CHANNELS ?? null,
   }
 }
 
@@ -163,20 +169,42 @@ export default async function SettingsPage() {
       {/* n8n */}
       <Section title="Automatyzacje (n8n)" icon={Zap}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <Row
-            label="N8N_WEBHOOK_SECRET"
-            ok={env.n8n_secret}
-            warn={!env.n8n_secret}
-            hint={!env.n8n_secret ? 'Potrzebny do /api/webhooks/slack-ingest' : undefined}
-          />
-          <div style={{ paddingTop: 8 }}>
-            <div style={{ fontSize: 12, color: t.text.muted, lineHeight: 1.7 }}>
-              <strong style={{ color: t.text.secondary }}>Dostępne endpointy webhook:</strong><br />
-              <code style={{ background: t.bg.muted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>POST /api/webhooks/slack-ingest</code> — Slack #quick-notes → CRM<br />
-              <code style={{ background: t.bg.muted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>POST /api/intelligence/radar/run</code> — n8n cron → World Radar digest<br />
-              <code style={{ background: t.bg.muted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>POST /api/guardian/run</code> — n8n cron → Guardian check
+          <Row label="N8N_WEBHOOK_SECRET" ok={env.n8n_secret} warn={!env.n8n_secret} hint={!env.n8n_secret ? 'Potrzebny do /api/webhooks/slack-ingest' : undefined} />
+          <Row label="N8N_API_KEY" ok={env.n8n_api_key} warn={!env.n8n_api_key} hint={!env.n8n_api_key ? 'Potrzebny do sync.mjs i Control Center' : undefined} />
+          <div style={{ paddingTop: 10 }}>
+            <div style={{ fontSize: 12, color: t.text.muted, lineHeight: 1.8 }}>
+              <strong style={{ color: t.text.secondary }}>5 aktywnych workflows:</strong><br />
+              <span style={{ opacity: 0.8 }}>01 Guardian cron (08:00) · 02 Radar cron (07:00) · 03 Slack→CRM · 04 Quote follow-up (09:00 pon-pt) · 05 Morning Digest (08:30 pon-pt)</span>
             </div>
+            <a href="/dashboard/settings#control-center" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 12, color: '#818CF8', textDecoration: 'none' }}>
+              Zarządzaj w Control Center ↓
+            </a>
           </div>
+        </div>
+      </Section>
+
+      {/* Slack */}
+      <Section title="Slack" icon={MessageSquare}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <Row label="SLACK_SIGNING_SECRET" ok={env.slack_signing} warn={!env.slack_signing} hint={!env.slack_signing ? 'Skopiuj z api.slack.com → Basic Information' : undefined} />
+          <Row label="SLACK_BOT_TOKEN" ok={env.slack_bot_token} warn={!env.slack_bot_token} hint={!env.slack_bot_token ? 'Skopiuj z api.slack.com → OAuth & Permissions' : undefined} />
+          <Row label="SLACK_CHANNELS" ok={!!env.slack_channels} value={env.slack_channels ?? undefined} warn={!env.slack_channels} hint={!env.slack_channels ? 'ID kanału #quick-notes (np. C08XXXXXX)' : undefined} />
+          {!env.slack_signing && (
+            <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, fontSize: 12, color: t.text.muted, lineHeight: 1.7 }}>
+              <strong style={{ color: '#fbbf24' }}>Aby aktywować Slack Events API:</strong><br />
+              1. Dodaj SLACK_SIGNING_SECRET do Vercel Environment Variables<br />
+              2. W api.slack.com → Event Subscriptions → Request URL:<br />
+              <code style={{ fontSize: 11, background: t.bg.muted, padding: '1px 5px', borderRadius: 3 }}>
+                https://77stf-system-crypto77stf-4430s-projects.vercel.app/api/webhooks/slack-events
+              </code><br />
+              3. Subscribe to: <code style={{ fontSize: 11 }}>message.channels</code>
+            </div>
+          )}
+          {env.slack_signing && (
+            <div style={{ marginTop: 8, fontSize: 12, color: t.semantic.success }}>
+              Slack Events API skonfigurowany — wiadomości z #quick-notes trafiają do CRM.
+            </div>
+          )}
         </div>
       </Section>
 
@@ -196,36 +224,8 @@ export default async function SettingsPage() {
         </div>
       </Section>
 
-      {/* Pending migrations */}
-      <Section title="Migracje bazy danych" icon={Shield}>
-        <div style={{ fontSize: 12, color: t.text.muted, lineHeight: 1.8, marginBottom: 10 }}>
-          Uruchom w Supabase SQL Editor w kolejności:
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[
-            { file: '009_intelligence_digests.sql', desc: 'World Radar — historia digestów' },
-            { file: '010_guardian.sql',              desc: 'Guardian Agent — historia raportów' },
-          ].map(m => (
-            <div key={m.file} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: t.bg.muted, borderRadius: 6 }}>
-              <AlertCircle size={12} style={{ color: '#fbbf24', flexShrink: 0 }} />
-              <code style={{ fontSize: 12, color: t.text.secondary, flex: 1 }}>{m.file}</code>
-              <span style={{ fontSize: 11, color: t.text.muted }}>{m.desc}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <a
-            href="https://supabase.com/dashboard"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#818CF8', textDecoration: 'none' }}
-          >
-            Otwórz Supabase SQL Editor <ExternalLink size={10} />
-          </a>
-        </div>
-      </Section>
-
       {/* Control Center */}
+      <div id="control-center" />
       <Section title="Control Center" icon={ToggleLeft}>
         <ControlCenter initialToggles={toggles ?? []} />
       </Section>

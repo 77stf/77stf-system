@@ -87,12 +87,22 @@ function ErrorRow({ entry }: { entry: ErrorEntry }) {
   )
 }
 
+type TimeRange = '24h' | '7d' | '30d' | 'all'
+
+const TIME_RANGE_LABELS: Record<TimeRange, string> = {
+  '24h': 'Ostatnie 24h',
+  '7d': 'Ostatnie 7 dni',
+  '30d': 'Ostatnie 30 dni',
+  'all': 'Wszystkie',
+}
+
 export default function ErrorsPage() {
   const [errors, setErrors] = useState<ErrorEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [clearing, setClearing] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h')
 
   const copyAll = () => {
     const text = errors.map(e =>
@@ -103,14 +113,13 @@ export default function ErrorsPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const fetchErrors = useCallback(async () => {
+  const fetchErrors = useCallback(async (range: TimeRange) => {
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch('/api/errors?limit=100')
+      const res = await fetch(`/api/errors?since=${range}&limit=100`)
       const data = await res.json() as { errors?: ErrorEntry[]; error?: string }
       if (!res.ok || data.error) {
-        // API itself failed — likely error_log table missing: run migration 003_error_log.sql
         setFetchError(data.error ?? `HTTP ${res.status}`)
         setErrors([])
       } else {
@@ -124,7 +133,7 @@ export default function ErrorsPage() {
     }
   }, [])
 
-  useEffect(() => { fetchErrors() }, [fetchErrors])
+  useEffect(() => { fetchErrors(timeRange) }, [timeRange, fetchErrors])
 
   const clearAll = async () => {
     if (!confirm('Usunąć wszystkie logi błędów?')) return
@@ -134,21 +143,25 @@ export default function ErrorsPage() {
     setClearing(false)
   }
 
+  const handleRangeChange = (range: TimeRange) => {
+    setTimeRange(range)
+  }
+
   return (
     <div style={{ padding: '32px 28px', maxWidth: 900 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text.primary, margin: 0 }}>
             Logi błędów
           </h1>
           <p style={{ fontSize: 13, color: t.text.muted, margin: '4px 0 0' }}>
-            Błędy AI, API i automatyzacji — {errors.length} wpisów
+            {TIME_RANGE_LABELS[timeRange]} — {errors.length} wpisów
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
-            onClick={fetchErrors}
+            onClick={() => fetchErrors(timeRange)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: t.bg.overlay, color: t.text.secondary,
@@ -194,6 +207,26 @@ export default function ErrorsPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Time range filter */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {(Object.keys(TIME_RANGE_LABELS) as TimeRange[]).map(range => (
+          <button
+            key={range}
+            onClick={() => handleRangeChange(range)}
+            style={{
+              padding: '6px 14px', borderRadius: t.radius.sm,
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              border: `1px solid ${timeRange === range ? 'rgba(129,140,248,0.4)' : t.border.subtle}`,
+              background: timeRange === range ? 'rgba(129,140,248,0.12)' : 'transparent',
+              color: timeRange === range ? '#818CF8' : t.text.muted,
+              transition: 'all 150ms',
+            }}
+          >
+            {TIME_RANGE_LABELS[range]}
+          </button>
+        ))}
       </div>
 
       {/* Table */}

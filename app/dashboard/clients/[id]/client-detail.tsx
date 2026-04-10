@@ -425,11 +425,24 @@ export function ClientDetail({ client, projects, automations, meetings, document
   const router = useRouter()
   const [clientData, setClientData] = useState<Client>(client)
   const [showEdit, setShowEdit] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleClientSaved = useCallback((updated: Client) => {
     setClientData(updated)
     setShowEdit(false)
   }, [])
+
+  const handleDelete = async () => {
+    if (!confirm(`Czy na pewno chcesz usunąć klienta "${clientData.name}"?\nTej akcji nie można cofnąć.`)) return
+    setIsDeleting(true)
+    const res = await fetch(`/api/clients/${clientData.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      router.push('/dashboard/clients')
+    } else {
+      setIsDeleting(false)
+      alert('Błąd usuwania klienta — spróbuj ponownie.')
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -490,6 +503,21 @@ export function ClientDetail({ client, projects, automations, meetings, document
             <a href={`/client/${clientData.client_token}`} target="_blank" rel="noopener noreferrer" style={actionLinkStyle(t.border.default, t.bg.muted, t.text.secondary)}>
               <ExternalLink size={13} /> Portal
             </a>
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              title="Usuń klienta"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '6px 10px', borderRadius: t.radius.sm,
+                border: `1px solid ${t.semantic.errorBorder}`,
+                background: t.semantic.errorBg, color: t.semantic.error,
+                fontSize: 12, fontWeight: 600, cursor: isDeleting ? 'not-allowed' : 'pointer',
+                opacity: isDeleting ? 0.6 : 1, flexShrink: 0,
+              }}
+            >
+              <Trash2 size={12} /> {isDeleting ? 'Usuwam...' : 'Usuń'}
+            </button>
           </div>
         </div>
       </SpotlightCard>

@@ -6,7 +6,7 @@ import { useRef, useEffect, useState } from 'react'
 import {
   LayoutDashboard, Users, Receipt, CheckSquare, ClipboardCheck,
   Shield, Settings, LogOut, Bot, AlertTriangle, Terminal, Map,
-  Rss, Brain, TrendingUp, MessageSquare, Zap, Send,
+  Brain,
 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { t } from '@/lib/tokens'
@@ -38,25 +38,15 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/dashboard/operator',     label: 'Operator',        icon: Terminal,     badge: 'AI' },
       { href: '/dashboard/guardian',     label: 'Guardian',        icon: Shield,       badge: 'AI' },
       { href: '/dashboard/intelligence', label: 'Intelligence Hub', icon: Brain,       badge: 'AI' },
-      { href: '/dashboard/content',      label: 'Content Studio',  icon: Rss,          badge: 'AI' },
     ],
   },
   {
-    label: 'Monitoring',
+    label: 'System',
     items: [
-      { href: '/dashboard/telegram',     label: 'Telegram',        icon: Send,         badge: 'Live' },
       { href: '/dashboard/ai-costs',     label: 'Koszty AI',       icon: Bot },
       { href: '/dashboard/errors',       label: 'Logi błędów',     icon: AlertTriangle },
       { href: '/dashboard/system-map',   label: 'Mapa systemu',    icon: Map },
-    ],
-  },
-  {
-    label: 'Planowane',
-    items: [
-      { href: '/dashboard/projects',     label: 'Projekty',        icon: TrendingUp,   planned: true },
-      { href: '/dashboard/documents',    label: 'Dokumenty',       icon: Receipt,      planned: true },
-      { href: '#slack',                  label: 'Slack Bot',       icon: MessageSquare, planned: true },
-      { href: '#n8n',                    label: 'n8n Flows',       icon: Zap,          planned: true },
+      { href: '/dashboard/settings',     label: 'Ustawienia',      icon: Settings },
     ],
   },
 ]
