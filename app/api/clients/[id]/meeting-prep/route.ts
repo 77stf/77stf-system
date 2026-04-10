@@ -330,24 +330,53 @@ Odpowiadaj WYŁĄCZNIE JSON. Zero tekstu przed ani po. Zero markdown. Zero backt
     const { text } = await callClaude({
       feature: 'meetingBrief',
       model: getModel('meetingBrief'),
-      system: 'Jesteś polskim konsultantem sprzedaży B2B. Odpowiadaj WYŁĄCZNIE w JSON — zero tekstu poza JSON, zero markdown, zero backticks. Polskie zdania muszą być gramatycznie poprawne.',
+      system: 'Jesteś polskim konsultantem sprzedaży B2B. Odpowiadaj WYŁĄCZNIE w JSON — zero tekstu poza JSON, zero markdown, zero backticks. Polskie zdania muszą być gramatycznie poprawne. Zwróć kompletny, poprawny JSON — upewnij się że wszystkie nawiasy i cudzysłowy są zamknięte.',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 8192,
+      max_tokens: 4096,
       client_id: id,
     })
 
     let brief: unknown
     try {
+      // 1. Direct parse
       brief = JSON.parse(text)
     } catch {
+      // 2. Extract JSON block
       const match = text.match(/\{[\s\S]*\}/)
-      if (match) {
-        brief = JSON.parse(match[0])
-      } else {
-        return NextResponse.json(
-          { error: 'Nie udało się sparsować odpowiedzi AI. Spróbuj ponownie.' },
-          { status: 500 }
-        )
+      const candidate = match?.[0] ?? text
+      try {
+        brief = JSON.parse(candidate)
+      } catch {
+        // 3. Truncated JSON repair — close open arrays/objects
+        const repaired = (() => {
+          let s = candidate.trimEnd()
+          // Count unclosed brackets
+          let braces = 0, brackets = 0, inStr = false, esc = false
+          for (const ch of s) {
+            if (esc) { esc = false; continue }
+            if (ch === '\\' && inStr) { esc = true; continue }
+            if (ch === '"') { inStr = !inStr; continue }
+            if (inStr) continue
+            if (ch === '{') braces++
+            if (ch === '}') braces--
+            if (ch === '[') brackets++
+            if (ch === ']') brackets--
+          }
+          // Remove trailing comma before closing
+          s = s.replace(/,\s*$/, '')
+          // Close open structures
+          while (brackets > 0) { s += ']'; brackets-- }
+          while (braces > 0) { s += '}'; braces-- }
+          return s
+        })()
+        try {
+          brief = JSON.parse(repaired)
+        } catch {
+          return NextResponse.json(
+            { error: 'Nie udało się sparsować odpowiedzi AI. Spróbuj ponownie.' },
+            { status: 500 }
+          )
+        }
       }
     }
 
