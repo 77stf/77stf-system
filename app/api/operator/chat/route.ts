@@ -6,27 +6,27 @@ import { rateLimit } from '@/lib/rate-limit'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
-// ─── Tool definitions ─────────────────────────────────────────────────────────
+// ─── Tool definitions (16 tools) ─────────────────────────────────────────────
 
 const TOOLS: Anthropic.Messages.Tool[] = [
+  // --- CRM (8 existing) ---
   {
     name: 'list_clients',
-    description: 'Pobierz listę klientów z podstawowymi info. Opcjonalnie filtruj po statusie.',
+    description: 'Pobierz listę klientów z podstawowymi info. Opcjonalnie filtruj po statusie lub etapie pipeline.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        status: { type: 'string', enum: ['lead', 'active', 'partner', 'closed'], description: 'Filtruj po statusie (opcjonalnie)' },
+        status:         { type: 'string', enum: ['lead', 'active', 'partner', 'closed'] },
+        pipeline_stage: { type: 'string', enum: ['discovery', 'audit', 'proposal', 'negotiation', 'onboarding', 'active', 'partner'] },
       },
     },
   },
   {
     name: 'get_client_details',
-    description: 'Pobierz szczegóły klienta: dane + ostatnie notatki + otwarte zadania + audyty.',
+    description: 'Pobierz szczegóły klienta: dane + ostatnie notatki + otwarte zadania + audyty + aktywności roadmap.',
     input_schema: {
       type: 'object' as const,
-      properties: {
-        client_id: { type: 'string', description: 'UUID klienta' },
-      },
+      properties: { client_id: { type: 'string', description: 'UUID klienta' } },
       required: ['client_id'],
     },
   },
@@ -36,11 +36,11 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        title:       { type: 'string', description: 'Tytuł zadania' },
-        client_id:   { type: 'string', description: 'UUID klienta (opcjonalnie)' },
-        priority:    { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priorytet (domyślnie medium)' },
-        description: { type: 'string', description: 'Opis zadania (opcjonalnie)' },
-        due_date:    { type: 'string', description: 'Termin ISO 8601 (opcjonalnie)' },
+        title:       { type: 'string' },
+        client_id:   { type: 'string' },
+        priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
+        description: { type: 'string' },
+        due_date:    { type: 'string', description: 'ISO 8601' },
       },
       required: ['title'],
     },
@@ -51,20 +51,20 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        client_id:  { type: 'string', description: 'UUID klienta' },
-        content:    { type: 'string', description: 'Treść notatki' },
-        importance: { type: 'string', enum: ['high', 'medium', 'low'], description: 'Ważność (domyślnie medium)' },
+        client_id:  { type: 'string' },
+        content:    { type: 'string' },
+        importance: { type: 'string', enum: ['high', 'medium', 'low'] },
       },
       required: ['client_id', 'content'],
     },
   },
   {
     name: 'update_client_status',
-    description: 'Zmień status klienta.',
+    description: 'Zmień status klienta (lead/active/partner/closed).',
     input_schema: {
       type: 'object' as const,
       properties: {
-        client_id: { type: 'string', description: 'UUID klienta' },
+        client_id: { type: 'string' },
         status:    { type: 'string', enum: ['lead', 'active', 'partner', 'closed'] },
       },
       required: ['client_id', 'status'],
@@ -76,14 +76,14 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        client_id: { type: 'string', description: 'Filtruj po kliencie (opcjonalnie)' },
-        status:    { type: 'string', enum: ['todo', 'in_progress', 'done'], description: 'Filtruj po statusie (opcjonalnie)' },
+        client_id: { type: 'string' },
+        status:    { type: 'string', enum: ['todo', 'in_progress', 'done'] },
       },
     },
   },
   {
     name: 'get_system_stats',
-    description: 'Pobierz statystyki systemu: liczba klientów, zadań, koszty AI tego miesiąca.',
+    description: 'Pobierz statystyki systemu: klienci, zadania, koszty AI tego miesiąca.',
     input_schema: { type: 'object' as const, properties: {} },
   },
   {
@@ -91,10 +91,86 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     description: 'Wyszukaj klienta po nazwie lub branży.',
     input_schema: {
       type: 'object' as const,
-      properties: {
-        query: { type: 'string', description: 'Fraza wyszukiwania (nazwa lub branża)' },
-      },
+      properties: { query: { type: 'string' } },
       required: ['query'],
+    },
+  },
+
+  // --- Pipeline (3 new) ---
+  {
+    name: 'get_roadmap_overview',
+    description: 'Pobierz pełny przegląd pipeline: ile firm w każdym etapie, ostatnie aktywności, stagnacje.',
+    input_schema: { type: 'object' as const, properties: {} },
+  },
+  {
+    name: 'advance_pipeline_stage',
+    description: 'Przesuń klienta do konkretnego etapu pipeline.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        client_id: { type: 'string' },
+        stage:     { type: 'string', enum: ['discovery', 'audit', 'proposal', 'negotiation', 'onboarding', 'active', 'partner'] },
+        note:      { type: 'string', description: 'Opcjonalna notatka o powodzie zmiany' },
+      },
+      required: ['client_id', 'stage'],
+    },
+  },
+  {
+    name: 'add_roadmap_activity',
+    description: 'Dodaj aktywność do klienta w pipeline (rozmowa, email, notatka, spotkanie, itp.).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        client_id:     { type: 'string' },
+        activity_type: { type: 'string', enum: ['call', 'email', 'meeting', 'note', 'quote_sent', 'research', 'demo', 'document', 'whatsapp'] },
+        title:         { type: 'string' },
+        description:   { type: 'string' },
+        outcome:       { type: 'string' },
+      },
+      required: ['client_id', 'activity_type', 'title'],
+    },
+  },
+
+  // --- Business intelligence (3 new) ---
+  {
+    name: 'get_cost_summary',
+    description: 'Pobierz podsumowanie wszystkich kosztów: AI (ten miesiąc) oraz subskrypcje biznesowe.',
+    input_schema: { type: 'object' as const, properties: {} },
+  },
+  {
+    name: 'save_offline_idea',
+    description: 'Zapisz pomysł do offline review na stronie Pomysły. Użyj gdy właściciel wspomina o pomyśle który warto zapamiętać.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title:       { type: 'string' },
+        description: { type: 'string' },
+        category:    { type: 'string', enum: ['implementation', 'system_upgrade', 'owner_idea', 'tool', 'integration'] },
+        priority:    { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+        roi_notes:   { type: 'string', description: 'Szacunkowy wpływ lub ROI' },
+      },
+      required: ['title', 'category'],
+    },
+  },
+  {
+    name: 'get_daily_priorities',
+    description: 'Wygeneruj ranking "co powinienem dziś zrobić" na podstawie zadań, stagnacji w pipeline i alertów systemu.',
+    input_schema: { type: 'object' as const, properties: {} },
+  },
+
+  // --- System (2 new) ---
+  {
+    name: 'run_guardian_scan',
+    description: 'Uruchom szybki skan Opiekuna Systemu — sprawdź czy coś jest nie tak.',
+    input_schema: { type: 'object' as const, properties: {} },
+  },
+  {
+    name: 'generate_meeting_brief',
+    description: 'Wygeneruj brief na spotkanie z klientem: kontekst, historia, otwarte tematy, sugerowane pytania.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { client_id: { type: 'string' } },
+      required: ['client_id'],
     },
   },
 ]
@@ -108,21 +184,24 @@ async function executeTool(
 ): Promise<string> {
   try {
     switch (name) {
+
       case 'list_clients': {
-        let query = supabase.from('clients').select('id, name, status, industry, owner_name, owner_phone, created_at')
-        if (input.status) query = query.eq('status', input.status as string)
+        let query = supabase.from('clients').select('id, name, status, pipeline_stage, industry, owner_name, owner_phone, created_at, last_activity_at')
+        if (input.status)         query = query.eq('status', input.status as string)
+        if (input.pipeline_stage) query = query.eq('pipeline_stage', input.pipeline_stage as string)
         const { data } = await query.order('name').limit(50)
         return JSON.stringify(data ?? [])
       }
 
       case 'get_client_details': {
-        const [{ data: client }, { data: notes }, { data: tasks }, { data: audits }] = await Promise.all([
+        const [{ data: client }, { data: notes }, { data: tasks }, { data: audits }, { data: activities }] = await Promise.all([
           supabase.from('clients').select('*').eq('id', input.client_id as string).single(),
           supabase.from('client_notes').select('content, importance, source, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(10),
           supabase.from('tasks').select('title, status, priority, due_date').eq('client_id', input.client_id as string).neq('status', 'done').order('created_at', { ascending: false }).limit(10),
-          supabase.from('audits').select('title, status, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(3),
+          supabase.from('audits').select('title, status, score, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(3),
+          supabase.from('roadmap_activities').select('activity_type, title, description, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(10),
         ])
-        return JSON.stringify({ client, notes: notes ?? [], open_tasks: tasks ?? [], audits: audits ?? [] })
+        return JSON.stringify({ client, notes: notes ?? [], open_tasks: tasks ?? [], audits: audits ?? [], recent_activities: activities ?? [] })
       }
 
       case 'create_task': {
@@ -176,8 +255,133 @@ async function executeTool(
 
       case 'search_clients': {
         const q = `%${input.query as string}%`
-        const { data } = await supabase.from('clients').select('id, name, status, industry, owner_name').or(`name.ilike.${q},industry.ilike.${q}`).limit(10)
+        const { data } = await supabase.from('clients').select('id, name, status, pipeline_stage, industry, owner_name').or(`name.ilike.${q},industry.ilike.${q}`).limit(10)
         return JSON.stringify(data ?? [])
+      }
+
+      case 'get_roadmap_overview': {
+        const stages = ['discovery', 'audit', 'proposal', 'negotiation', 'onboarding', 'active', 'partner']
+        const stageLabels: Record<string, string> = {
+          discovery: 'Odkrywanie', audit: 'Audyt', proposal: 'Oferta',
+          negotiation: 'Negocjacje', onboarding: 'Wdrażanie', active: 'Aktywny', partner: 'Partner',
+        }
+        const { data: clients } = await supabase.from('clients').select('id, name, pipeline_stage, last_activity_at, industry')
+
+        const counts = stages.map(s => ({
+          stage: s,
+          label: stageLabels[s],
+          count: (clients ?? []).filter(c => (c.pipeline_stage ?? 'discovery') === s).length,
+          firms: (clients ?? []).filter(c => (c.pipeline_stage ?? 'discovery') === s).map(c => c.name),
+        }))
+
+        // Stagnations: no activity in 7+ days
+        const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const stagnant = (clients ?? []).filter(c => !c.last_activity_at || c.last_activity_at < cutoff).map(c => c.name)
+
+        return JSON.stringify({ pipeline: counts, stagnant_firms: stagnant, total: (clients ?? []).length })
+      }
+
+      case 'advance_pipeline_stage': {
+        await supabase.from('clients').update({ pipeline_stage: input.stage as string }).eq('id', input.client_id as string)
+        await supabase.from('roadmap_activities').insert({
+          client_id:     input.client_id as string,
+          stage_key:     input.stage as string,
+          activity_type: 'stage_change',
+          title:         `Przejście do etapu: ${input.stage}`,
+          description:   (input.note as string | undefined) ?? null,
+        })
+        await supabase.from('roadmap_stages').insert({ client_id: input.client_id as string, stage_key: input.stage as string, notes: (input.note as string | undefined) ?? null })
+        return `Klient przesunięty do etapu "${input.stage}".`
+      }
+
+      case 'add_roadmap_activity': {
+        const { error } = await supabase.from('roadmap_activities').insert({
+          client_id:     input.client_id as string,
+          stage_key:     'discovery',
+          activity_type: input.activity_type as string,
+          title:         input.title as string,
+          description:   (input.description as string | undefined) ?? null,
+          outcome:       (input.outcome as string | undefined) ?? null,
+        })
+        if (error) return `Błąd: ${error.message}`
+        return 'Aktywność dodana do pipeline.'
+      }
+
+      case 'get_cost_summary': {
+        const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0, 0, 0, 0)
+        const [{ data: aiUsage }, { data: subscriptions }] = await Promise.all([
+          supabase.from('ai_usage_log').select('feature, model, cost_usd').gte('created_at', startOfMonth.toISOString()),
+          supabase.from('subscription_costs').select('name, category, amount_pln, billing_cycle, vendor, active').eq('active', true),
+        ])
+        const aiTotal = (aiUsage ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0)
+        const monthlyPln = (subscriptions ?? [])
+          .filter(s => s.billing_cycle === 'monthly')
+          .reduce((s, r) => s + (r.amount_pln ?? 0), 0)
+        return JSON.stringify({
+          ai_cost_usd: aiTotal.toFixed(4),
+          subscriptions: subscriptions ?? [],
+          monthly_total_pln: monthlyPln.toFixed(2),
+        })
+      }
+
+      case 'save_offline_idea': {
+        const { data, error } = await supabase.from('offline_ideas').insert({
+          title:       input.title as string,
+          category:    input.category as string,
+          description: (input.description as string | undefined) ?? null,
+          priority:    (input.priority as string) ?? 'medium',
+          status:      'new',
+          source_agent: 'second_brain',
+          roi_notes:   (input.roi_notes as string | undefined) ?? null,
+        }).select('id').single()
+        if (error) return `Błąd: ${error.message}`
+        return `Pomysł zapisany na stronie Pomysły (id: ${data.id}).`
+      }
+
+      case 'get_daily_priorities': {
+        const today = new Date().toISOString().split('T')[0]
+        const cutoff7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+        const [{ data: overdueTasks }, { data: todayTasks }, { data: stagnantClients }] = await Promise.all([
+          supabase.from('tasks').select('title, priority, due_date, clients(name)').eq('status', 'todo').lt('due_date', today).order('due_date').limit(5),
+          supabase.from('tasks').select('title, priority, clients(name)').eq('status', 'todo').eq('due_date', today).limit(5),
+          supabase.from('clients').select('name, pipeline_stage, last_activity_at').neq('status', 'closed').or(`last_activity_at.is.null,last_activity_at.lt.${cutoff7d}`).limit(5),
+        ])
+
+        return JSON.stringify({
+          overdue_tasks: overdueTasks ?? [],
+          todays_tasks: todayTasks ?? [],
+          stagnant_clients: stagnantClients ?? [],
+          message: 'Na podstawie tych danych wygeneruj ranking 3-5 najważniejszych rzeczy do zrobienia dziś.',
+        })
+      }
+
+      case 'run_guardian_scan': {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+          const res = await fetch(`${baseUrl}/api/guardian/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+          if (res.ok) {
+            const data = await res.json() as { summary?: string; findings?: unknown[] }
+            return `Guardian scan zakończony. ${data.summary ?? ''} Znaleziono ${Array.isArray(data.findings) ? data.findings.length : 0} alertów.`
+          }
+        } catch { /* ignore */ }
+        return 'Guardian scan uruchomiony w tle.'
+      }
+
+      case 'generate_meeting_brief': {
+        const [{ data: client }, { data: notes }, { data: audits }, { data: activities }] = await Promise.all([
+          supabase.from('clients').select('*').eq('id', input.client_id as string).single(),
+          supabase.from('client_notes').select('content, importance, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(5),
+          supabase.from('audits').select('title, status, score, ai_summary, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(1),
+          supabase.from('roadmap_activities').select('activity_type, title, description, created_at').eq('client_id', input.client_id as string).order('created_at', { ascending: false }).limit(10),
+        ])
+        return JSON.stringify({
+          client,
+          recent_notes: notes ?? [],
+          latest_audit: audits?.[0] ?? null,
+          recent_activities: activities ?? [],
+          instruction: 'Wygeneruj brief na spotkanie: kontekst firmy, historia relacji, otwarte tematy, 3-5 pytań do zadania, potencjalne obiekcje.',
+        })
       }
 
       default:
@@ -199,14 +403,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Za dużo zapytań. Odczekaj chwilę.' }, { status: 429 })
   }
 
-  let body: { messages: Anthropic.Messages.MessageParam[] }
+  let body: {
+    messages: Anthropic.Messages.MessageParam[]
+    conversation_id?: string
+    title?: string
+  }
   try { body = await req.json() as typeof body }
   catch { return NextResponse.json({ error: 'Nieprawidłowy format' }, { status: 400 }) }
 
   const supabase = createSupabaseAdminClient()
-  const conversationMessages = body.messages.slice(-20) // keep last 20 turns
+  const conversationMessages = body.messages.slice(-30) // keep last 30 turns
 
-  // Fetch live system snapshot to give Operator full context
+  // Fetch live system snapshot
   let snapshotContext = ''
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
@@ -215,26 +423,25 @@ export async function POST(req: Request) {
     })
     if (snap.ok) {
       const data = await snap.json() as Record<string, unknown>
-      snapshotContext = `\n\n## AKTUALNY STAN SYSTEMU (live data, ${new Date().toLocaleString('pl-PL')})\n${JSON.stringify(data, null, 2)}`
+      snapshotContext = `\n\n## AKTUALNY STAN SYSTEMU (${new Date().toLocaleString('pl-PL')})\n${JSON.stringify(data, null, 2)}`
     }
-  } catch { /* snapshot is best-effort, don't block */ }
+  } catch { /* best-effort */ }
 
-  const systemPrompt = `Jesteś Agent Operator — główny AI asystent firmy 77STF.
-77STF to zewnętrzny dział tech dla polskich MŚP: automatyzacje AI, voice agents, chatboty, social media automation.
-Stack: Next.js, Supabase, Claude API, n8n, Vapi.ai, ElevenLabs, Vercel.
+  const systemPrompt = `Jesteś Drugi Mózg — główny partner biznesowy i AI asystent firmy 77STF.
+77STF to zewnętrzny dział tech dla polskich MŚP: automatyzacje AI, voice agents (Vapi+ElevenLabs), chatboty RAG, social media automation, nagrania z drona.
+Właściciel ma 17 lat, myśli systemowo, często ma za dużo pomysłów naraz — Twoim zadaniem jest układać priorytety i prowadzić, nie czekać na rozkazy.
 
-Twoja rola: pomagasz właścicielowi zarządzać całą firmą — CRM, klientami, zadaniami, finansami AI, systemem.
-Masz dostęp do narzędzi CRM oraz PEŁNY KONTEKST systemu w sekcji poniżej.
+Aktywne leady: Avvlo (farmacja, Michał Szarycz — czeka na audyt), Petro-Lawa (paliwo), Galenos HK (Łukasz Horodenski — z polecenia Avvlo, te same potrzeby).
 
-Zasady:
-- Odpowiadasz PO POLSKU, zwięźle i konkretnie
-- Gdy pytają "kto / ile / jakie / kiedy" → sprawdź snapshot lub użyj narzędzia, potem odpowiedz
-- Gdy mówią "dodaj / zanotuj / zmień" → wykonaj natychmiast narzędziem
-- Po wykonaniu → potwierdź + zaproponuj co dalej
-- Nie pytaj o potwierdzenie prostych akcji — działaj
-- Możesz analizować i interpretować dane ze snapshotu — to twój główny kontekst
-- Znasz roadmapę, pending tasks, zdrowie systemu — używaj tej wiedzy aktywnie
-- Dla destructive actions (usuń klienta, etc.) → powiedz że to wymaga ręcznej akcji w dashboard
+## TWÓJ STYL
+- Mów PO POLSKU, konkretnie i po ludzku — jak partner, nie jak bot
+- Nie czekaj na pytanie — po każdej odpowiedzi zaproponuj 2-3 konkretne następne kroki
+- Gdy właściciel mówi o pomyśle → zapisz go narzędziem save_offline_idea
+- Gdy pyta "co robić dziś?" → użyj get_daily_priorities a potem wygeneruj konkretny ranking
+- Gdy mówi o kliencie → sprawdź dane, aktywności pipeline, zaproponuj akcję
+- Masz 16 narzędzi — używaj ich aktywnie, nie czekaj na zgodę na proste akcje
+- Odpowiadaj na przemyślane pytania filozofią "co + dlaczego + jak" w 3-5 zdaniach
+- Nigdy nie pisz "może warto rozważyć" — zawsze konkretna rekomendacja
 ${snapshotContext}`
 
   let messages = [...conversationMessages]
@@ -243,11 +450,11 @@ ${snapshotContext}`
   let finalText = ''
   const toolsUsed: string[] = []
 
-  // Agentic loop — max 5 iterations to prevent runaway
-  for (let i = 0; i < 5; i++) {
+  // Agentic loop — max 6 iterations
+  for (let i = 0; i < 6; i++) {
     const response = await anthropic.messages.create({
       model: AI_MODELS.balanced,
-      max_tokens: 1024,
+      max_tokens: 1500,
       system: systemPrompt,
       tools: TOOLS,
       messages,
@@ -268,21 +475,13 @@ ${snapshotContext}`
       const toolUseBlocks = response.content.filter(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use'
       )
-
-      // Execute all tools in parallel
       const toolResults = await Promise.all(
         toolUseBlocks.map(async block => {
           toolsUsed.push(block.name)
           const result = await executeTool(block.name, block.input as Record<string, unknown>, supabase)
-          return {
-            type: 'tool_result' as const,
-            tool_use_id: block.id,
-            content: result,
-          }
+          return { type: 'tool_result' as const, tool_use_id: block.id, content: result }
         })
       )
-
-      // Add assistant message and tool results to conversation
       messages = [
         ...messages,
         { role: 'assistant' as const, content: response.content },
@@ -291,9 +490,36 @@ ${snapshotContext}`
       continue
     }
 
-    // Unexpected stop reason
     finalText = 'Nie rozumiem. Spróbuj ponownie.'
     break
+  }
+
+  // Persist conversation
+  if (body.conversation_id) {
+    // Append to existing
+    const { data: conv } = await supabase.from('agent_conversations').select('messages').eq('id', body.conversation_id).single()
+    if (conv) {
+      const updatedMessages = [
+        ...(conv.messages as Anthropic.Messages.MessageParam[]),
+        ...body.messages.slice(-(body.messages.length)),
+        { role: 'assistant' as const, content: finalText },
+      ]
+      await supabase.from('agent_conversations').update({ messages: updatedMessages }).eq('id', body.conversation_id)
+    }
+  } else if (body.messages.length === 1) {
+    // New conversation — auto-title from first message
+    const firstUserMsg = body.messages[0]
+    const titleText = typeof firstUserMsg.content === 'string'
+      ? firstUserMsg.content.slice(0, 60)
+      : 'Nowa rozmowa'
+    await supabase.from('agent_conversations').insert({
+      user_id: user.id,
+      title: titleText,
+      messages: [
+        ...body.messages,
+        { role: 'assistant', content: finalText },
+      ],
+    })
   }
 
   // Track usage
@@ -302,7 +528,7 @@ ${snapshotContext}`
   const costUsd = ((totalInputTokens / 1000) * (outputRate * 0.2)) + ((totalOutputTokens / 1000) * outputRate)
 
   void supabase.from('ai_usage_log').insert({
-    feature: 'operatorChat',
+    feature: 'drugiMozg',
     model,
     input_tokens: totalInputTokens,
     output_tokens: totalOutputTokens,
