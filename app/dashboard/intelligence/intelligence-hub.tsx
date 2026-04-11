@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Brain, Zap, Globe, Search, Shield, Target, MessageSquare, Network, Play, RefreshCw } from 'lucide-react'
+import { Brain, Zap, Globe, Search, Shield, Target, MessageSquare, Network, Play, RefreshCw, FlaskConical } from 'lucide-react'
 import { t } from '@/lib/tokens'
 import { formatPLN } from '@/lib/format'
 import { GlobalStackMap } from './global-stack-map'
+import { AnalyzerTab } from './analyzer-tab'
 import type { StackItem, Client, StackItemStatus } from '@/lib/types'
 
-type Tab = 'command' | 'stack' | 'scout' | 'radar'
+type Tab = 'command' | 'stack' | 'scout' | 'radar' | 'analyzer'
 
 interface IntelligenceHubProps {
   initialItems: StackItem[]
@@ -76,6 +77,18 @@ const AGENT_CARDS = [
     action: 'Zobacz Radar',
     tab: 'radar' as Tab,
     color: '#34D399',
+  },
+  {
+    id: 'analyzer',
+    icon: FlaskConical,
+    name: 'Analizator',
+    role: 'Implementation Intelligence',
+    description: 'Wklej link, screenshot lub pomysł — Analizator porówna z systemem 77STF, oceni czy to najlepsze wdrożenie, wyliczy ROI per klient i zaproponuje alternatywy.',
+    model: 'Sonnet + Vision',
+    status: 'live' as const,
+    action: 'Analizuj wdrożenie',
+    tab: 'analyzer' as Tab,
+    color: '#818CF8',
   },
   {
     id: 'architect',
@@ -644,10 +657,11 @@ export function IntelligenceHub({ initialItems, clients }: IntelligenceHubProps)
   const [activeTab, setActiveTab] = useState<Tab>('command')
 
   const tabs: { id: Tab; label: string; icon: React.ElementType; badge?: string }[] = [
-    { id: 'command', label: 'Command Center', icon: Brain },
-    { id: 'stack',   label: 'Stack Map',      icon: Network,     badge: String(initialItems.length) },
-    { id: 'scout',   label: 'Zwiadowca',       icon: Search,      badge: 'AI' },
-    { id: 'radar',   label: 'Radar',           icon: Globe,       badge: 'Live' },
+    { id: 'command',  label: 'Command Center', icon: Brain },
+    { id: 'stack',    label: 'Stack Map',      icon: Network,       badge: String(initialItems.length) },
+    { id: 'scout',    label: 'Zwiadowca',      icon: Search,        badge: 'AI' },
+    { id: 'radar',    label: 'Radar',          icon: Globe,         badge: 'Live' },
+    { id: 'analyzer', label: 'Analizator',     icon: FlaskConical,  badge: 'AI' },
   ]
 
   return (
@@ -700,10 +714,11 @@ export function IntelligenceHub({ initialItems, clients }: IntelligenceHubProps)
       </div>
 
       {/* Tab content */}
-      {activeTab === 'command' && <CommandCenter onTabChange={setActiveTab} />}
-      {activeTab === 'stack'   && <GlobalStackMap items={initialItems} clients={clients} />}
-      {activeTab === 'scout'   && <ContentScout />}
-      {activeTab === 'radar'   && <WorldRadar />}
+      {activeTab === 'command'  && <CommandCenter onTabChange={setActiveTab} />}
+      {activeTab === 'stack'    && <GlobalStackMap items={initialItems} clients={clients} />}
+      {activeTab === 'scout'    && <ContentScout />}
+      {activeTab === 'radar'    && <WorldRadar />}
+      {activeTab === 'analyzer' && <AnalyzerTab />}
     </div>
   )
 }
