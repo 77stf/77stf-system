@@ -295,7 +295,7 @@ export default function GuardianPage() {
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: '-0.3px', color: t.text.primary }}>
-              Guardian
+              Opiekun Systemu
             </h1>
             <p style={{ margin: 0, fontSize: 12, color: t.text.muted }}>
               Automatyczny monitoring · {lastRefresh ? `odświeżono ${relativeTime(lastRefresh.toISOString())}` : 'ładowanie...'}
@@ -372,7 +372,7 @@ export default function GuardianPage() {
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
           <RefreshCw size={15} style={{ color: '#60A5FA', animation: 'spin 1s linear infinite' }} />
-          <span style={{ fontSize: 13, color: t.text.secondary }}>Guardian skanuje system — to zajmie chwilę...</span>
+          <span style={{ fontSize: 13, color: t.text.secondary }}>Opiekun skanuje system — to zajmie chwilę...</span>
         </div>
       ) : null}
 

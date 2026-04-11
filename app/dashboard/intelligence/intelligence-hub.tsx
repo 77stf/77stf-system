@@ -646,8 +646,8 @@ export function IntelligenceHub({ initialItems, clients }: IntelligenceHubProps)
   const tabs: { id: Tab; label: string; icon: React.ElementType; badge?: string }[] = [
     { id: 'command', label: 'Command Center', icon: Brain },
     { id: 'stack',   label: 'Stack Map',      icon: Network,     badge: String(initialItems.length) },
-    { id: 'scout',   label: 'Content Scout',  icon: Search,      badge: 'AI' },
-    { id: 'radar',   label: 'World Radar',    icon: Globe,       badge: 'Live' },
+    { id: 'scout',   label: 'Zwiadowca',       icon: Search,      badge: 'AI' },
+    { id: 'radar',   label: 'Radar',           icon: Globe,       badge: 'Live' },
   ]
 
   return (
@@ -658,7 +658,7 @@ export function IntelligenceHub({ initialItems, clients }: IntelligenceHubProps)
           <div style={{ width: 36, height: 36, borderRadius: t.radius.sm, background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.30)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Brain size={18} style={{ color: '#818CF8' }} />
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text.primary, margin: 0 }}>Intelligence Hub</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text.primary, margin: 0 }}>Wywiad</h1>
         </div>
         <p style={{ color: t.text.muted, fontSize: 13, margin: 0 }}>
           Jeden panel — wszystkie agenty, globalny stack klientów, analiza treści.
