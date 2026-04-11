@@ -5,8 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useEffect, useState } from 'react'
 import {
   LayoutDashboard, Users, Receipt, CheckSquare, ClipboardCheck,
-  Shield, Settings, LogOut, Bot, AlertTriangle, Terminal, Map,
-  Brain,
+  Shield, Settings, LogOut, Terminal, Map, Brain, Presentation,
+  DollarSign, Lightbulb, Kanban,
 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { t } from '@/lib/tokens'
@@ -23,30 +23,37 @@ interface NavItem {
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
-    label: 'Główne',
+    label: 'Pipeline',
     items: [
-      { href: '/dashboard',              label: 'Dashboard',       icon: LayoutDashboard },
-      { href: '/dashboard/clients',      label: 'Klienci',         icon: Users },
-      { href: '/dashboard/tasks',        label: 'Zadania',         icon: CheckSquare },
-      { href: '/dashboard/quotes',       label: 'Wyceny',          icon: Receipt },
-      { href: '/dashboard/audits',       label: 'Audyty',          icon: ClipboardCheck },
+      { href: '/dashboard',              label: 'Dashboard',        icon: LayoutDashboard },
+      { href: '/dashboard/roadmap',      label: 'Roadmap',          icon: Kanban,        planned: true },
+      { href: '/dashboard/clients',      label: 'Klienci',          icon: Users },
+      { href: '/dashboard/quotes',       label: 'Wyceny',           icon: Receipt },
+      { href: '/dashboard/presentations',label: 'Prezentacje',      icon: Presentation,  planned: true },
+    ],
+  },
+  {
+    label: 'Narzędzia',
+    items: [
+      { href: '/dashboard/tasks',        label: 'Zadania',          icon: CheckSquare },
+      { href: '/dashboard/audits',       label: 'Audyty',           icon: ClipboardCheck },
+      { href: '/dashboard/costs',        label: 'Koszty',           icon: DollarSign,    planned: true },
     ],
   },
   {
     label: 'Agenci AI',
     items: [
-      { href: '/dashboard/operator',     label: 'Operator',        icon: Terminal,     badge: 'AI' },
-      { href: '/dashboard/guardian',     label: 'Guardian',        icon: Shield,       badge: 'AI' },
-      { href: '/dashboard/intelligence', label: 'Intelligence Hub', icon: Brain,       badge: 'AI' },
+      { href: '/dashboard/operator',     label: 'Drugi Mózg',       icon: Terminal,      badge: 'AI' },
+      { href: '/dashboard/guardian',     label: 'Opiekun Systemu',  icon: Shield,        badge: 'AI' },
+      { href: '/dashboard/intelligence', label: 'Wywiad',           icon: Brain,         badge: 'AI' },
     ],
   },
   {
     label: 'System',
     items: [
-      { href: '/dashboard/ai-costs',     label: 'Koszty AI',       icon: Bot },
-      { href: '/dashboard/errors',       label: 'Logi błędów',     icon: AlertTriangle },
-      { href: '/dashboard/system-map',   label: 'Mapa systemu',    icon: Map },
-      { href: '/dashboard/settings',     label: 'Ustawienia',      icon: Settings },
+      { href: '/dashboard/settings',     label: 'Ustawienia',       icon: Settings },
+      { href: '/dashboard/system-map',   label: 'Mapa Systemu',     icon: Map },
+      { href: '/dashboard/ideas',        label: 'Pomysły',          icon: Lightbulb,     planned: true },
     ],
   },
 ]

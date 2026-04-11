@@ -1,4 +1,5 @@
 export type ClientStatus = 'lead' | 'active' | 'partner' | 'closed'
+export type PipelineStage = 'discovery' | 'audit' | 'proposal' | 'negotiation' | 'onboarding' | 'active' | 'partner'
 export type ProjectStatus = 'kickoff' | 'demo1' | 'demo2' | 'production' | 'delivered' | 'partner'
 export type AutomationStatus = 'active' | 'error' | 'paused'
 export type DocumentType = 'offer' | 'contract' | 'report'
@@ -25,6 +26,7 @@ export interface Client {
   churn_reason?: string
   created_by?: string
   tags?: string[]
+  pipeline_stage?: PipelineStage
 }
 
 export interface Project {
@@ -364,4 +366,141 @@ export interface StackItem {
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string
+}
+
+// ─── Roadmap Pipeline types ──────────────────────────────────────────────────
+
+export interface RoadmapStage {
+  id: string
+  client_id: string
+  stage_key: PipelineStage
+  entered_at: string
+  completed_at?: string
+  notes?: string
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export type ActivityType = 'call' | 'email' | 'meeting' | 'note' | 'quote_sent' | 'research' | 'demo' | 'document' | 'whatsapp' | 'stage_change'
+
+export interface RoadmapActivity {
+  id: string
+  client_id: string
+  stage_key: PipelineStage
+  activity_type: ActivityType
+  title: string
+  description?: string
+  outcome?: string
+  contact_person?: string
+  scheduled_at?: string
+  completed_at?: string
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export type ResearchSourceType = 'website' | 'linkedin' | 'facebook' | 'instagram' | 'google_maps' | 'krs' | 'manual' | 'email'
+export type ResearchRelevance = 'high' | 'medium' | 'low'
+
+export interface ClientResearch {
+  id: string
+  client_id: string
+  source_type: ResearchSourceType
+  source_url?: string
+  title: string
+  content: string
+  ai_summary?: string
+  relevance: ResearchRelevance
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export type PresentationStatus = 'draft' | 'ready' | 'presented' | 'follow_up'
+
+export interface Presentation {
+  id: string
+  client_id: string
+  title: string
+  status: PresentationStatus
+  slides_data: Record<string, unknown>[]
+  qa_log: Record<string, unknown>[]
+  presented_at?: string
+  feedback?: string
+  canva_url?: string
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  // joined
+  client?: Pick<Client, 'id' | 'name' | 'industry'>
+}
+
+export type CostCategory = 'ai' | 'infrastructure' | 'tool' | 'service' | 'client_specific'
+export type BillingCycle = 'monthly' | 'yearly' | 'one_time'
+
+export interface SubscriptionCost {
+  id: string
+  name: string
+  category: CostCategory
+  client_id?: string
+  amount_pln: number
+  billing_cycle: BillingCycle
+  vendor?: string
+  next_billing?: string
+  active: boolean
+  notes?: string
+  created_at: string
+  // joined
+  client?: Pick<Client, 'id' | 'name'>
+}
+
+export interface AgentConversation {
+  id: string
+  user_id: string
+  title?: string
+  messages: { role: 'user' | 'assistant'; content: string; timestamp: string }[]
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export type IdeaCategory = 'implementation' | 'system_upgrade' | 'owner_idea' | 'tool' | 'integration'
+export type IdeaPriority = 'critical' | 'high' | 'medium' | 'low'
+export type IdeaStatus = 'new' | 'considering' | 'planned' | 'in_progress' | 'rejected' | 'done'
+export type IdeaSourceAgent = 'analyzer' | 'radar' | 'guardian' | 'second_brain' | 'manual'
+
+export interface OfflineIdea {
+  id: string
+  title: string
+  category: IdeaCategory
+  description?: string
+  priority: IdeaPriority
+  status: IdeaStatus
+  source_agent?: IdeaSourceAgent
+  source_url?: string
+  effort_hours?: number
+  roi_notes?: string
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export type AnalysisSourceType = 'ig_reel' | 'yt_short' | 'fb_post' | 'tiktok' | 'screenshot' | 'idea' | 'text'
+export type AnalysisRecommendation = 'implement' | 'monitor' | 'skip'
+
+export interface ImplementationAnalysis {
+  id: string
+  source_type: AnalysisSourceType
+  source_url?: string
+  source_text?: string
+  analysis: {
+    what_is_it: string
+    relevance_score: number
+    system_comparison: string
+    pros_cons: { pros: string[]; cons: string[] }
+    alternatives: string[]
+    recommendation: string
+  }
+  recommendation: AnalysisRecommendation
+  relevance_score?: number
+  idea_id?: string
+  created_at: string
 }
