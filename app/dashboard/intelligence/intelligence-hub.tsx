@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Brain, Zap, Globe, Search, Shield, Target, MessageSquare, Network, Play, RefreshCw, FlaskConical, Image as ImageIcon, FileText, Layout, Mic, Link2, X } from 'lucide-react'
+import { Brain, Zap, Globe, Search, Shield, Target, MessageSquare, Network, Play, RefreshCw, FlaskConical, Image as ImageIcon, FileText, Layout, Mic, Link2, X, Cpu } from 'lucide-react'
 import { t } from '@/lib/tokens'
 import { formatPLN } from '@/lib/format'
 import { GlobalStackMap } from './global-stack-map'
 import { AnalyzerTab } from './analyzer-tab'
+import { TechMonitorTab } from './tech-monitor-tab'
 import type { StackItem, Client, StackItemStatus } from '@/lib/types'
 
-type Tab = 'command' | 'stack' | 'scout' | 'radar' | 'analyzer'
+type Tab = 'command' | 'stack' | 'scout' | 'radar' | 'analyzer' | 'monitor'
 
 interface IntelligenceHubProps {
   initialItems: StackItem[]
@@ -89,6 +90,18 @@ const AGENT_CARDS = [
     action: 'Analizuj wdrożenie',
     tab: 'analyzer' as Tab,
     color: '#818CF8',
+  },
+  {
+    id: 'monitor',
+    icon: Cpu,
+    name: 'Tech Monitor',
+    role: 'Stack Update Watchdog',
+    description: 'Śledzi aktualizacje narzędzi ze stacku klientów. Gdy Vapi wypuści nową wersję — zobaczysz badge na karcie wdrożenia i rekomendację co zrobić.',
+    model: 'Haiku',
+    status: 'live' as const,
+    action: 'Sprawdź stack',
+    tab: 'monitor' as Tab,
+    color: '#34D399',
   },
   {
     id: 'architect',
@@ -859,6 +872,7 @@ export function IntelligenceHub({ initialItems, clients }: IntelligenceHubProps)
     { id: 'scout',    label: 'Zwiadowca',      icon: Search,        badge: 'AI' },
     { id: 'radar',    label: 'Radar',          icon: Globe,         badge: 'Live' },
     { id: 'analyzer', label: 'Analizator',     icon: FlaskConical,  badge: 'AI' },
+    { id: 'monitor',  label: 'Tech Monitor',   icon: Cpu },
   ]
 
   return (
@@ -916,6 +930,7 @@ export function IntelligenceHub({ initialItems, clients }: IntelligenceHubProps)
       {activeTab === 'scout'    && <ContentScout />}
       {activeTab === 'radar'    && <WorldRadar />}
       {activeTab === 'analyzer' && <AnalyzerTab />}
+      {activeTab === 'monitor'  && <TechMonitorTab />}
     </div>
   )
 }
