@@ -6,7 +6,7 @@ import { useRef, useEffect, useState } from 'react'
 import {
   LayoutDashboard, Users, Receipt, CheckSquare, ClipboardCheck,
   Shield, Settings, LogOut, Terminal, Map, Brain, Presentation,
-  DollarSign, Lightbulb, Kanban,
+  DollarSign, Lightbulb, Kanban, Wifi, WifiOff,
 } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { t } from '@/lib/tokens'
@@ -26,10 +26,10 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Pipeline',
     items: [
       { href: '/dashboard',              label: 'Dashboard',        icon: LayoutDashboard },
-      { href: '/dashboard/roadmap',      label: 'Roadmap',          icon: Kanban,        planned: true },
+      { href: '/dashboard/roadmap',      label: 'Roadmap',          icon: Kanban },
       { href: '/dashboard/clients',      label: 'Klienci',          icon: Users },
       { href: '/dashboard/quotes',       label: 'Wyceny',           icon: Receipt },
-      { href: '/dashboard/presentations',label: 'Prezentacje',      icon: Presentation,  planned: true },
+      { href: '/dashboard/presentations',label: 'Prezentacje',      icon: Presentation },
     ],
   },
   {
@@ -37,7 +37,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: '/dashboard/tasks',        label: 'Zadania',          icon: CheckSquare },
       { href: '/dashboard/audits',       label: 'Audyty',           icon: ClipboardCheck },
-      { href: '/dashboard/costs',        label: 'Koszty',           icon: DollarSign,    planned: true },
+      { href: '/dashboard/costs',        label: 'Koszty',           icon: DollarSign,    planned: true  },
     ],
   },
   {
@@ -53,7 +53,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: '/dashboard/settings',     label: 'Ustawienia',       icon: Settings },
       { href: '/dashboard/system-map',   label: 'Mapa Systemu',     icon: Map },
-      { href: '/dashboard/ideas',        label: 'Pomysły',          icon: Lightbulb,     planned: true },
+      { href: '/dashboard/ideas',        label: 'Pomysły',          icon: Lightbulb },
     ],
   },
 ]
@@ -95,6 +95,15 @@ export function Sidebar({ userEmail, userName }: SidebarProps) {
 
   const displayName = userName || (userEmail ? userEmail.split('@')[0] : 'Admin')
   const initials = displayName.slice(0, 1).toUpperCase()
+
+  // MCP connections shown in sidebar
+  const MCP_CONNECTIONS = [
+    { label: 'Gmail',    connected: true },
+    { label: 'GCal',     connected: true },
+    { label: 'Notion',   connected: true },
+    { label: 'Canva',    connected: true },
+    { label: 'Slack',    connected: false },
+  ]
 
   let itemIndex = -1 // running index across all items for refs
 
@@ -215,6 +224,35 @@ export function Sidebar({ userEmail, userName }: SidebarProps) {
             ))}
           </div>
         </nav>
+
+        {/* MCP connections strip */}
+        <div style={{ padding: '8px 12px', borderTop: `1px solid ${t.border.subtle}` }}>
+          <div style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', color: t.text.muted, marginBottom: 6, opacity: 0.6 }}>
+            MCP / API
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {MCP_CONNECTIONS.map(({ label, connected }) => (
+              <div
+                key={label}
+                title={connected ? `${label} — połączono` : `${label} — niepołączono`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  fontSize: 9, fontWeight: 600,
+                  padding: '2px 6px', borderRadius: t.radius.full,
+                  background: connected ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${connected ? 'rgba(74,222,128,0.2)' : t.border.subtle}`,
+                  color: connected ? '#4ade80' : t.text.muted,
+                }}
+              >
+                {connected
+                  ? <Wifi style={{ width: 7, height: 7 }} />
+                  : <WifiOff style={{ width: 7, height: 7 }} />
+                }
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* User */}
         <div style={{ padding: '12px 12px 14px', borderTop: `1px solid ${t.border.subtle}`, display: 'flex', alignItems: 'center', gap: 9 }}>
