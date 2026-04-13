@@ -231,6 +231,167 @@ async function checkStackErrors(supabase: ReturnType<typeof createSupabaseAdminC
   return alerts
 }
 
+// ─── NEW: Overdue high-priority tasks ─────────────────────────────────────────
+
+async function checkOverdueTasks(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<GuardianAlert[]> {
+  const alerts: GuardianAlert[] = []
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data: tasks } = await supabase
+    .from('tasks')
+    .select('id, title, priority, due_date, client_id, clients(name)')
+    .in('status', ['todo', 'in_progress'])
+    .in('priority', ['high', 'critical'])
+    .lt('due_date', today)
+    .order('due_date')
+    .limit(10)
+
+  if (!tasks) return alerts
+
+  const now = new Date()
+  for (const task of tasks) {
+    const days = Math.floor((now.getTime() - new Date(task.due_date).getTime()) / 86400000)
+    const clientName = (task.clients as { name?: string } | null)?.name
+    alerts.push({
+      type: 'overdue_task',
+      severity: days >= 3 ? 'critical' : 'warning',
+      action_type: 'crm',
+      client_id: task.client_id ?? undefined,
+      client_name: clientName,
+      title: `Zaległe zadanie: "${task.title}" (${days}d)`,
+      detail: `Zadanie o priorytecie ${task.priority} przeterminowane o ${days} ${days === 1 ? 'dzień' : 'dni'}.${clientName ? ` Klient: ${clientName}.` : ''}`,
+      action: `Oznacz jako zrobione lub przesuń termin`,
+      action_link: task.client_id ? `/dashboard/tasks` : '/dashboard/tasks',
+      days_overdue: days,
+    })
+  }
+  return alerts
+}
+
+// ─── NEW: Pipeline stagnation — leads stuck too long ──────────────────────────
+
+async function checkPipelineStagnation(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<GuardianAlert[]> {
+  const alerts: GuardianAlert[] = []
+
+  // Expected max days per stage before it's considered stagnant
+  const stageLimits: Record<string, number> = {
+    discovery: 7,
+    audit: 14,
+    proposal: 10,
+    negotiation: 21,
+    onboarding: 30,
+  }
+
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('id, name, pipeline_stage, last_activity_at')
+    .not('status', 'eq', 'closed')
+    .not('pipeline_stage', 'in', '("active","partner")')
+
+  if (!clients) return alerts
+  const now = new Date()
+
+  for (const client of clients) {
+    const stage = client.pipeline_stage ?? 'discovery'
+    const limit = stageLimits[stage]
+    if (!limit) continue
+    const lastActivity = client.last_activity_at ? new Date(client.last_activity_at) : null
+    if (!lastActivity) continue
+    const days = Math.floor((now.getTime() - lastActivity.getTime()) / 86400000)
+    if (days >= limit) {
+      alerts.push({
+        type: 'pipeline_stagnation',
+        severity: days >= limit * 2 ? 'critical' : 'warning',
+        action_type: 'crm',
+        client_id: client.id,
+        client_name: client.name,
+        title: `${client.name} stoi w etapie "${stage}" od ${days}d`,
+        detail: `Klient utknął w etapie ${stage}. Brak postępu przez ${days} dni (limit: ${limit}d). Ryzyko utraty leada.`,
+        action: `Sprawdź status i zrób następny krok — zadzwoń, wyślij ofertę lub zamknij`,
+        action_link: `/dashboard/roadmap`,
+        days_overdue: days,
+        recommend_prompt: `Klient "${client.name}" z branży utknął w etapie "${stage}" pipeline 77STF od ${days} dni. Jakie konkretne akcje podjąć żeby ruszyć sprawę? Jakie pytania zadać na następnym kontakcie?`,
+      })
+    }
+  }
+  return alerts
+}
+
+// ─── NEW: Error log spike ──────────────────────────────────────────────────────
+
+async function checkErrorSpike(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<GuardianAlert[]> {
+  const alerts: GuardianAlert[] = []
+
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const last1h  = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
+  const [{ count: errors24h }, { count: errors1h }] = await Promise.all([
+    supabase.from('error_log').select('*', { count: 'exact', head: true }).gte('created_at', last24h),
+    supabase.from('error_log').select('*', { count: 'exact', head: true }).gte('created_at', last1h),
+  ])
+
+  if ((errors1h ?? 0) >= 10) {
+    alerts.push({
+      type: 'error_spike',
+      severity: 'critical',
+      action_type: 'code',
+      title: `Spike błędów: ${errors1h} w ostatniej godzinie`,
+      detail: `System generuje dużo błędów — coś może być poważnie zepsute. ${errors24h} błędów w ciągu 24h.`,
+      action: 'Sprawdź logi błędów w Ustawieniach',
+      action_link: '/dashboard/settings',
+      recommend_prompt: `System 77STF wygenerował ${errors1h} błędów w ostatniej godzinie (${errors24h} w 24h). Jak diagnozować takie spiki? Co może być przyczyną i jakie kroki podjąć?`,
+    })
+  } else if ((errors24h ?? 0) >= 20) {
+    alerts.push({
+      type: 'error_high',
+      severity: 'warning',
+      action_type: 'code',
+      title: `Podwyższona liczba błędów: ${errors24h} w 24h`,
+      detail: `Więcej niż zwykle — warto sprawdzić czy to normalny ruch czy problem z integracją.`,
+      action: 'Przejrzyj logi błędów',
+      action_link: '/dashboard/settings',
+    })
+  }
+
+  return alerts
+}
+
+// ─── NEW: Active clients missing monthly check-in ─────────────────────────────
+
+async function checkActiveClientsHealth(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<GuardianAlert[]> {
+  const alerts: GuardianAlert[] = []
+  const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: activeClients } = await supabase
+    .from('clients')
+    .select('id, name, last_activity_at')
+    .eq('status', 'active')
+
+  if (!activeClients) return alerts
+  const now = new Date()
+
+  for (const client of activeClients) {
+    if (!client.last_activity_at || client.last_activity_at < cutoff30d) {
+      const days = client.last_activity_at
+        ? Math.floor((now.getTime() - new Date(client.last_activity_at).getTime()) / 86400000)
+        : 999
+      alerts.push({
+        type: 'active_client_no_checkin',
+        severity: 'warning',
+        action_type: 'crm',
+        client_id: client.id,
+        client_name: client.name,
+        title: `${client.name} — brak miesięcznego check-inu (${days}d)`,
+        detail: `Aktywny klient bez kontaktu przez ${days} dni. Miesięczna opieka to podstawa retencji — brak kontaktu = ryzyko wypowiedzenia.`,
+        action: 'Wyślij raport miesięczny lub zadzwoń z proaktywną aktualizacją',
+        action_link: `/dashboard/clients/${client.id}`,
+        days_overdue: days,
+      })
+    }
+  }
+  return alerts
+}
+
 // ─── POST /api/guardian/run ───────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -261,12 +422,19 @@ export async function POST(req: Request) {
 
   const supabase = createSupabaseAdminClient()
 
-  const [inactivityAlerts, quotesAlerts, leadsAlerts, costsAlerts, stackAlerts] = await Promise.all([
+  const [
+    inactivityAlerts, quotesAlerts, leadsAlerts, costsAlerts, stackAlerts,
+    overdueAlerts, stagnationAlerts, errorAlerts, healthAlerts,
+  ] = await Promise.all([
     checkClientInactivity(supabase),
     checkSentQuotes(supabase),
     checkNewLeads(supabase),
     checkAiCosts(supabase),
     checkStackErrors(supabase),
+    checkOverdueTasks(supabase),
+    checkPipelineStagnation(supabase),
+    checkErrorSpike(supabase),
+    checkActiveClientsHealth(supabase),
   ])
 
   const allAlerts: GuardianAlert[] = [
@@ -275,6 +443,10 @@ export async function POST(req: Request) {
     ...leadsAlerts,
     ...costsAlerts,
     ...stackAlerts,
+    ...overdueAlerts,
+    ...stagnationAlerts,
+    ...errorAlerts,
+    ...healthAlerts,
   ].sort((a, b) => {
     const order = { critical: 0, warning: 1, info: 2 }
     return order[a.severity] - order[b.severity]
@@ -293,12 +465,13 @@ export async function POST(req: Request) {
     const { text } = await callClaude({
       feature: 'guardianReport',
       model: AI_MODELS.fast,
-      system: `Jesteś Guardian — system monitoringu 77STF.
-Napisz JEDNO zdanie (max 120 znaków) — co jest najpilniejsze do zrobienia.
-ZASADY: bez markdown, bez bold, bez gwiazdek, bez nagłówków, bez dwukropków na początku.
-Zacznij od czasownika lub nazwy klienta. Przykład: "Petro-Lawa czeka 9 dni — zadzwoń dziś."`,
-      messages: [{ role: 'user', content: `Alerty:\n${alertsText}` }],
-      max_tokens: 80,
+      system: `Jesteś Guardian — Opiekun Systemu 77STF. Monitoring działa i właśnie wykrył alerty.
+Napisz JEDNO zdanie (max 140 znaków) — najważniejsza akcja do podjęcia TERAZ.
+ZASADY ABSOLUTNE: bez markdown, zero gwiazdek, zero bold, zero nagłówków, zero emoji, zero dwukropków na początku.
+Mów po ludzku, jak partner do partnera. Przykład: "Avvlo czeka 12 dni na follow-up — to priorytet na dziś."
+Jeśli jest kilka pilnych — wybierz jedno, najważniejsze dla biznesu.`,
+      messages: [{ role: 'user', content: `Znalezione alerty (${allAlerts.length} łącznie, ${critical} krytycznych):\n${alertsText}` }],
+      max_tokens: 100,
       triggered_by: 'guardian',
     })
     summary = text.replace(/\*\*/g, '').replace(/\*/g, '').trim()
@@ -316,7 +489,7 @@ Zacznij od czasownika lub nazwy klienta. Przykład: "Petro-Lawa czeka 9 dni — 
       warnings,
       trigger,
       metadata: {
-        checks_run: ['client_inactivity', 'sent_quotes', 'new_leads', 'ai_costs', 'stack_errors'],
+        checks_run: ['client_inactivity', 'sent_quotes', 'new_leads', 'ai_costs', 'stack_errors', 'overdue_tasks', 'pipeline_stagnation', 'error_spike', 'active_client_health'],
       },
     })
     .select('id, generated_at')
